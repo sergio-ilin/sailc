@@ -16,12 +16,22 @@ import (
 )
 
 var threadClicks = make(map[string]*widget.Clickable)
+var tagClicks = make(map[string]*widget.Clickable)
 
 func getThreadClick(id string) *widget.Clickable {
 	c, ok := threadClicks[id]
 	if !ok {
 		c = new(widget.Clickable)
 		threadClicks[id] = c
+	}
+	return c
+}
+
+func getTagClick(tag string) *widget.Clickable {
+	c, ok := tagClicks[tag]
+	if !ok {
+		c = new(widget.Clickable)
+		tagClicks[tag] = c
 	}
 	return c
 }
@@ -63,7 +73,7 @@ func (a *App) layoutLogControlBar(gtx layout.Context, pal brand.Palette, totalTh
 		Axis:      layout.Horizontal,
 		Alignment: layout.Middle,
 	}.Layout(gtx,
-		// Search input for filtering context
+		// Search input for filtering context by keywords or PascalCase tags (#ProjectName)
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			macro := op.Record(gtx.Ops)
 			dims := layout.Inset{
@@ -72,7 +82,7 @@ func (a *App) layoutLogControlBar(gtx layout.Context, pal brand.Palette, totalTh
 				Left:   unit.Dp(14),
 				Right:  unit.Dp(14),
 			}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				ed := material.Editor(a.theme, &a.searchEditor, "Filter discussions, context, and solutions...")
+				ed := material.Editor(a.theme, &a.searchEditor, "Filter by keyword or project tag (e.g. #ProjectSailC)...")
 				ed.Color = pal.TextPrimary
 				ed.HintColor = pal.TextMuted
 				ed.TextSize = unit.Sp(13)
@@ -127,7 +137,7 @@ func (a *App) layoutThreadsList(gtx layout.Context, threads []*domain.Thread, pa
 					Right:  unit.Dp(14),
 				}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-						// Author badge and title
+						// Row 1: Author badge and title
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -148,18 +158,28 @@ func (a *App) layoutThreadsList(gtx layout.Context, threads []*domain.Thread, pa
 							)
 						}),
 						layout.Rigid(layout.Spacer{Height: unit.Dp(6)}.Layout),
-						// Content snippet
+						// Row 2: Content snippet
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							snippet := thr.Content
-							if len(snippet) > 100 {
-								snippet = snippet[:100] + "..."
+							if len(snippet) > 90 {
+								snippet = snippet[:90] + "..."
 							}
 							lbl := material.Label(a.theme, unit.Sp(12), snippet)
 							lbl.Color = pal.TextSecondary
 							return lbl.Layout(gtx)
 						}),
+						layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
+						// Row 3: PascalCase Tags badges
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							if len(thr.Tags) == 0 {
+								return layout.Dimensions{}
+							}
+							return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+								a.renderTagsRow(thr.Tags, pal)...,
+							)
+						}),
 						layout.Rigid(layout.Spacer{Height: unit.Dp(6)}.Layout),
-						// Meta: responses count, status, time
+						// Row 4: Meta: responses count, status, time
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							meta := fmt.Sprintf("Responses: %d  •  %s  •  %s",
 								len(thr.Responses),
@@ -187,6 +207,30 @@ func (a *App) layoutThreadsList(gtx layout.Context, threads []*domain.Thread, pa
 			})
 		})
 	})
+}
+
+func (a *App) renderTagsRow(tags []string, pal brand.Palette) []layout.FlexChild {
+	var children []layout.FlexChild
+	for _, t := range tags {
+		tagStr := t
+		click := getTagClick(tagStr)
+		children = append(children,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				if click.Clicked(gtx) {
+					a.searchEditor.SetText(tagStr)
+				}
+				return material.Clickable(gtx, click, func(gtx layout.Context) layout.Dimensions {
+					return DrawBadge(gtx, pal.Canvas, func(gtx layout.Context) layout.Dimensions {
+						lbl := material.Label(a.theme, unit.Sp(10), "#"+tagStr)
+						lbl.Color = pal.Accent
+						return lbl.Layout(gtx)
+					})
+				})
+			}),
+			layout.Rigid(layout.Spacer{Width: unit.Dp(6)}.Layout),
+		)
+	}
+	return children
 }
 
 func (a *App) layoutThreadDetail(gtx layout.Context, pal brand.Palette) layout.Dimensions {
@@ -226,12 +270,29 @@ func (a *App) layoutThreadDetail(gtx layout.Context, pal brand.Palette) layout.D
 				)
 			}),
 			layout.Rigid(layout.Spacer{Height: unit.Dp(6)}.Layout),
-			// Author & timestamp
+			// Author, timestamp, and PascalCase tags
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				info := fmt.Sprintf("Author: %s  •  Published: %s", thr.AuthorAgent, thr.CreatedAt.Format("Jan 02 15:04:05"))
 				lbl := material.Label(a.theme, unit.Sp(12), info)
 				lbl.Color = pal.TextSecondary
 				return lbl.Layout(gtx)
+			}),
+			layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
+			// PascalCase Tags bar
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				if len(thr.Tags) == 0 {
+					return layout.Dimensions{}
+				}
+				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+					append([]layout.FlexChild{
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							lbl := material.Label(a.theme, unit.Sp(11), "Project & Topic Tags:")
+							lbl.Color = pal.TextMuted
+							return lbl.Layout(gtx)
+						}),
+						layout.Rigid(layout.Spacer{Width: unit.Dp(8)}.Layout),
+					}, a.renderTagsRow(thr.Tags, pal)...)...,
+				)
 			}),
 			layout.Rigid(layout.Spacer{Height: unit.Dp(12)}.Layout),
 			// Context content box
@@ -320,7 +381,7 @@ func (a *App) layoutThreadDetail(gtx layout.Context, pal brand.Palette) layout.D
 			layout.Rigid(layout.Spacer{Height: unit.Dp(10)}.Layout),
 			// Bottom footnote
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				lbl := material.Label(a.theme, unit.Sp(11), "• AI agents communicate autonomously via MCP JSON-RPC (:8765/mcp). Operator interface is read-only.")
+				lbl := material.Label(a.theme, unit.Sp(11), "• AI agents verify and update PascalCase tags via 'hub_update_tags'. Click any tag to filter.")
 				lbl.Color = pal.TextMuted
 				return lbl.Layout(gtx)
 			}),

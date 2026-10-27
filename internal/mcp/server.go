@@ -176,13 +176,13 @@ func (s *Server) getToolsManifest() []map[string]interface{} {
 	return []map[string]interface{}{
 		{
 			"name":        "hub_search",
-			"description": "Proactive context search across previous discussions and solutions. Use before asking new questions to avoid duplicate context.",
+			"description": "Proactive context search across previous discussions and solutions. Use before asking new questions to avoid duplicate context. You can search by keywords or PascalCase project tags (e.g. 'ProjectSailC' or 'AstParser').",
 			"inputSchema": map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
 					"query": map[string]string{
 						"type":        "string",
-						"description": "Search keywords, error messages, or task summary",
+						"description": "Search keywords, project tag, error messages, or task summary",
 					},
 				},
 				"required": []string{"query"},
@@ -190,7 +190,7 @@ func (s *Server) getToolsManifest() []map[string]interface{} {
 		},
 		{
 			"name":        "hub_ask",
-			"description": "Publish a new inquiry or task to the shared log when context or information is missing. Triggers other local AI agents to supply answers.",
+			"description": "Publish a new inquiry to the central log when context or information is missing. Always include PascalCase tags without spaces (e.g. ['ProjectSailC', 'GoBackend', 'AstParser']), including the project tag to facilitate project-based discovery.",
 			"inputSchema": map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
@@ -200,7 +200,7 @@ func (s *Server) getToolsManifest() []map[string]interface{} {
 					},
 					"title": map[string]string{
 						"type":        "string",
-						"description": "One-line task summary or question",
+						"description": "One-line task summary or question topic",
 					},
 					"content": map[string]string{
 						"type":        "string",
@@ -209,15 +209,15 @@ func (s *Server) getToolsManifest() []map[string]interface{} {
 					"tags": map[string]interface{}{
 						"type":        "array",
 						"items":       map[string]string{"type": "string"},
-						"description": "Task tags (e.g. ['go', 'api', 'docker'])",
+						"description": "MANDATORY PascalCase tags with NO SPACES (e.g. ['ProjectName', 'GoBackend', 'AstParser']). Always include the project name tag.",
 					},
 				},
-				"required": []string{"author", "title", "content"},
+				"required": []string{"author", "title", "content", "tags"},
 			},
 		},
 		{
 			"name":        "hub_answer",
-			"description": "Provide a solution, answer, or additional context to an existing discussion thread.",
+			"description": "Provide a solution, answer, or additional context to an existing discussion thread. Can also supply additional PascalCase tags discovered during solution formulation.",
 			"inputSchema": map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
@@ -233,8 +233,40 @@ func (s *Server) getToolsManifest() []map[string]interface{} {
 						"type":        "string",
 						"description": "Solution, advice, or code response",
 					},
+					"tags": map[string]interface{}{
+						"type":        "array",
+						"items":       map[string]string{"type": "string"},
+						"description": "Optional additional PascalCase tags discovered (e.g. ['SolutionFound', 'AstCache']) to attach to this chat.",
+					},
 				},
 				"required": []string{"thread_id", "author", "content"},
+			},
+		},
+		{
+			"name":        "hub_update_tags",
+			"description": "Review and update/append PascalCase tags for a discussion thread. The asking AI agent should inspect the attached tags after receiving an answer to ensure project and domain tags are accurate for future retrieval.",
+			"inputSchema": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"thread_id": map[string]string{
+						"type":        "string",
+						"description": "Thread identifier to update tags for",
+					},
+					"author": map[string]string{
+						"type":        "string",
+						"description": "Calling AI agent identifier",
+					},
+					"tags": map[string]interface{}{
+						"type":        "array",
+						"items":       map[string]string{"type": "string"},
+						"description": "List of PascalCase tags without spaces (e.g. ['ProjectSailC', 'GoBackend', 'Solved']).",
+					},
+					"append": map[string]interface{}{
+						"type":        "boolean",
+						"description": "If true, appends new tags to existing ones; if false, replaces tags. Default is true.",
+					},
+				},
+				"required": []string{"thread_id", "author", "tags"},
 			},
 		},
 		{
@@ -311,22 +343,31 @@ func (s *Server) callTool(name string, args map[string]interface{}) (interface{}
 			"content": []map[string]interface{}{
 				{
 					"type": "text",
-					"text": fmt.Sprintf("Thread published to SailC Central Log!\nThread ID: %s\nStatus: Awaiting answers from other AI agents.", thr.ID),
+					"text": fmt.Sprintf("Thread published to SailC Central Log!\nThread ID: %s\nAssigned PascalCase Tags: %v\nStatus: Awaiting answers from other AI agents.\n[Standard Directive]: When an answer is received, inspect the tags and invoke hub_update_tags if additional project or solution tags are needed.", thr.ID, thr.Tags),
 				},
 			},
 			"thread_id": thr.ID,
+			"tags":      thr.Tags,
 		}, nil
 
 	case "hub_answer":
 		threadID, _ := args["thread_id"].(string)
 		author, _ := args["author"].(string)
 		content, _ := args["content"].(string)
+		var extraTags []string
+		if rawTags, ok := args["tags"].([]interface{}); ok {
+			for _, t := range rawTags {
+				if str, ok := t.(string); ok {
+					extraTags = append(extraTags, str)
+				}
+			}
+		}
 
 		if threadID == "" || author == "" || content == "" {
 			return nil, &rpcError{Code: -32602, Message: "Fields thread_id, author, and content are required"}
 		}
 
-		resp, err := s.store.AddResponse(threadID, author, content)
+		resp, currentTags, err := s.store.AddResponse(threadID, author, content, extraTags)
 		if err != nil {
 			return nil, &rpcError{Code: -32000, Message: err.Error()}
 		}
@@ -335,9 +376,47 @@ func (s *Server) callTool(name string, args map[string]interface{}) (interface{}
 			"content": []map[string]interface{}{
 				{
 					"type": "text",
-					"text": fmt.Sprintf("Response added to thread %s by '%s'. Response ID: %s", threadID, author, resp.ID),
+					"text": fmt.Sprintf("Response added to thread %s by '%s'. Response ID: %s.\nCurrent PascalCase Tags: %v.\n[Standard Directive]: The asking agent should now inspect these tags and call hub_update_tags to link any missing project tags (e.g. 'ProjectX') for easy retrieval.", threadID, author, resp.ID, currentTags),
 				},
 			},
+			"tags": currentTags,
+		}, nil
+
+	case "hub_update_tags":
+		threadID, _ := args["thread_id"].(string)
+		author, _ := args["author"].(string)
+		appendMode := true
+		if appVal, ok := args["append"].(bool); ok {
+			appendMode = appVal
+		}
+
+		var tags []string
+		if rawTags, ok := args["tags"].([]interface{}); ok {
+			for _, t := range rawTags {
+				if str, ok := t.(string); ok {
+					tags = append(tags, str)
+				}
+			}
+		}
+
+		if threadID == "" || len(tags) == 0 {
+			return nil, &rpcError{Code: -32602, Message: "Fields thread_id and non-empty tags array are required"}
+		}
+
+		updatedTags, err := s.store.UpdateThreadTags(threadID, tags, appendMode)
+		if err != nil {
+			return nil, &rpcError{Code: -32000, Message: err.Error()}
+		}
+
+		return map[string]interface{}{
+			"content": []map[string]interface{}{
+				{
+					"type": "text",
+					"text": fmt.Sprintf("Tags for thread %s successfully updated by '%s'.\nCurrent PascalCase Tags: %v", threadID, author, updatedTags),
+				},
+			},
+			"thread_id": threadID,
+			"tags":      updatedTags,
 		}, nil
 
 	case "hub_list_threads":
@@ -365,9 +444,11 @@ func (s *Server) callTool(name string, args map[string]interface{}) (interface{}
 			ID:          agentID,
 			Name:        agentID,
 			Type:        "MCP Agent",
+			Source:      "MCP Connected Agent",
 			Status:      st,
 			CurrentTask: desc,
 			TaskCount:   1,
+			SortOrder:   10,
 			LastSeen:    time.Now(),
 		}
 		s.store.UpsertAgent(agent)
@@ -472,9 +553,11 @@ func (s *Server) handleRESTReportStatus(w http.ResponseWriter, r *http.Request) 
 		ID:          req.AgentID,
 		Name:        req.AgentID,
 		Type:        "REST Agent",
+		Source:      "REST Connected Agent",
 		Status:      st,
 		CurrentTask: req.TaskDesc,
 		TaskCount:   1,
+		SortOrder:   10,
 		LastSeen:    time.Now(),
 	}
 	s.store.UpsertAgent(agent)

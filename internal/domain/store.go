@@ -72,7 +72,7 @@ func (s *Store) seedInitialData() {
 				CreatedAt:   now.Add(-10 * time.Minute),
 			},
 		},
-		Tags: []string{"system", "init", "context"},
+		Tags: []string{"ProjectSailC", "SystemInit", "ContextHub"},
 	})
 }
 
@@ -171,6 +171,8 @@ func (s *Store) GetAgent(id string) (*Agent, bool) {
 func (s *Store) CreateThread(author, title, content string, tags []string) *Thread {
 	s.mu.Lock()
 	now := time.Now()
+	normTags := NormalizeTags(tags)
+
 	thr := &Thread{
 		ID:          fmt.Sprintf("thr-%d", now.UnixNano()/1e6),
 		AuthorAgent: author,
@@ -180,7 +182,7 @@ func (s *Store) CreateThread(author, title, content string, tags []string) *Thre
 		CreatedAt:   now,
 		UpdatedAt:   now,
 		Responses:   make([]Response, 0),
-		Tags:        tags,
+		Tags:        normTags,
 	}
 	s.threads = append([]*Thread{thr}, s.threads...)
 
@@ -198,7 +200,7 @@ func (s *Store) CreateThread(author, title, content string, tags []string) *Thre
 }
 
 // AddResponse appends a reply from another AI agent to an existing thread.
-func (s *Store) AddResponse(threadID, author, content string) (*Response, error) {
+func (s *Store) AddResponse(threadID, author, content string, additionalTags []string) (*Response, []string, error) {
 	s.mu.Lock()
 	var target *Thread
 	for _, t := range s.threads {
@@ -210,7 +212,7 @@ func (s *Store) AddResponse(threadID, author, content string) (*Response, error)
 
 	if target == nil {
 		s.mu.Unlock()
-		return nil, fmt.Errorf("discussion thread %s not found", threadID)
+		return nil, nil, fmt.Errorf("discussion thread %s not found", threadID)
 	}
 
 	now := time.Now()
@@ -226,6 +228,14 @@ func (s *Store) AddResponse(threadID, author, content string) (*Response, error)
 	target.UpdatedAt = now
 	target.Status = ThreadDiscussing
 
+	// Merge additional tags if provided
+	if len(additionalTags) > 0 {
+		merged := append(target.Tags, additionalTags...)
+		target.Tags = NormalizeTags(merged)
+	}
+
+	finalTags := target.Tags
+
 	if a, ok := s.agents[author]; ok {
 		a.LastSeen = now
 	}
@@ -234,7 +244,39 @@ func (s *Store) AddResponse(threadID, author, content string) (*Response, error)
 
 	s.notify()
 	s.save()
-	return &resp, nil
+	return &resp, finalTags, nil
+}
+
+// UpdateThreadTags updates or appends PascalCase tags to an existing thread.
+func (s *Store) UpdateThreadTags(threadID string, tags []string, appendMode bool) ([]string, error) {
+	s.mu.Lock()
+	var target *Thread
+	for _, t := range s.threads {
+		if t.ID == threadID {
+			target = t
+			break
+		}
+	}
+
+	if target == nil {
+		s.mu.Unlock()
+		return nil, fmt.Errorf("discussion thread %s not found", threadID)
+	}
+
+	var updated []string
+	if appendMode {
+		updated = NormalizeTags(append(target.Tags, tags...))
+	} else {
+		updated = NormalizeTags(tags)
+	}
+	target.Tags = updated
+	target.UpdatedAt = time.Now()
+
+	s.mu.Unlock()
+
+	s.notify()
+	s.save()
+	return updated, nil
 }
 
 // ListThreads returns all threads.
@@ -247,12 +289,14 @@ func (s *Store) ListThreads() []*Thread {
 	return res
 }
 
-// SearchThreads searches titles, content, and responses for matching keywords.
+// SearchThreads searches titles, content, responses, and PascalCase tags.
 func (s *Store) SearchThreads(query string) []*Thread {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	q := strings.ToLower(strings.TrimSpace(query))
+	q = strings.TrimPrefix(q, "#")
+
 	if q == "" {
 		res := make([]*Thread, len(s.threads))
 		copy(res, s.threads)
@@ -262,11 +306,26 @@ func (s *Store) SearchThreads(query string) []*Thread {
 	var results []*Thread
 	for _, t := range s.threads {
 		match := false
-		if strings.Contains(strings.ToLower(t.Title), q) ||
-			strings.Contains(strings.ToLower(t.Content), q) ||
-			strings.Contains(strings.ToLower(t.AuthorAgent), q) {
-			match = true
-		} else {
+
+		// 1. Tag search (highest priority)
+		for _, tag := range t.Tags {
+			if strings.Contains(strings.ToLower(tag), q) {
+				match = true
+				break
+			}
+		}
+
+		// 2. Title, Content, Author search
+		if !match {
+			if strings.Contains(strings.ToLower(t.Title), q) ||
+				strings.Contains(strings.ToLower(t.Content), q) ||
+				strings.Contains(strings.ToLower(t.AuthorAgent), q) {
+				match = true
+			}
+		}
+
+		// 3. Responses search
+		if !match {
 			for _, r := range t.Responses {
 				if strings.Contains(strings.ToLower(r.Content), q) ||
 					strings.Contains(strings.ToLower(r.AuthorAgent), q) {
@@ -275,6 +334,7 @@ func (s *Store) SearchThreads(query string) []*Thread {
 				}
 			}
 		}
+
 		if match {
 			results = append(results, t)
 		}

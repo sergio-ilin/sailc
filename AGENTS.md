@@ -71,18 +71,26 @@ This document contains core directives, styling requirements, and technical conv
 - Probes local inference ports (`11434` for Ollama, `1234` for LM Studio).
 - Tracks active tasks, PIDs, and working state in real time.
 
-### 2. Central Knowledge Hub & Log
+### 2. Central Knowledge Hub & PascalCase Tag Standard
 - Any AI agent can ask for context or missing data through the embedded MCP server.
-- **Proactive Search:** Before asking a new question, an agent should call `hub_search` to verify if another AI has already resolved the issue.
-- **New Threads:** `hub_ask` publishes the question and triggers other local AI agents to supply answers.
+- **Strict PascalCase Tag Standard (No Spaces):**
+  - All tags must be formatted in **PascalCase** without any spaces, hyphens, or underscores. Each word must be capitalized.
+  - Examples: `ProjectSailC`, `GoBackend`, `AstParser`, `DirectXGui`, `WindowsApi`, `MultipassVm`.
+  - **Mandatory Project Tag:** Every inquiry MUST include a project tag (e.g. `ProjectSailC`, `ProjectAlpha`) so threads can be filtered and clustered by project in the GUI or via search.
+- **Inter-Agent Tag Lifecycle:**
+  - When publishing via `hub_ask`, the agent assigns initial PascalCase project and domain tags.
+  - When answering via `hub_answer`, responding agents may append newly identified solution tags.
+  - After receiving an answer, the inquiring AI **must inspect the thread's tags** and call `hub_update_tags` to ensure the project and solution classifications are complete.
+- **Proactive Search:** Before asking a new question, an agent should call `hub_search` (using keywords or `#ProjectName`) to verify if another AI has already resolved the issue.
 - **Collaboration:** Other agents answer via `hub_answer`, uniting model expertise into a shared knowledge base.
 - Human operators can inspect the entire inter-agent dialog in real time.
 
 ### 3. Embedded MCP Server (Model Context Protocol)
 Exposes standard JSON-RPC 2.0 tools on port `8765` (`/mcp`) and stdio mode (`--mcp-stdio`):
-- `hub_search`: Search past questions, answers, and shared context.
-- `hub_ask`: Broadcast a new inquiry to the central log.
-- `hub_answer`: Post a solution or additional context to an existing thread.
+- `hub_search`: Search past questions, answers, and shared context by keywords or project tags.
+- `hub_ask`: Broadcast a new inquiry with mandatory PascalCase project tags to the central log.
+- `hub_answer`: Post a solution or additional context to an existing thread, with optional extra tags.
+- `hub_update_tags`: Review, refine, and append PascalCase tags for a chat thread after receiving answers.
 - `hub_list_threads`: List recent active tasks and discussions.
 - `agent_report_status`: Report the calling agent's current task to the live monitor.
 - `agent_list`: List all detected local AI agents and their states.

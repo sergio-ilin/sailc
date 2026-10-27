@@ -46,12 +46,19 @@ SailC runs an embedded MCP JSON-RPC 2.0 server listening on `http://127.0.0.1:87
 
 | Tool | Purpose |
 | :--- | :--- |
-| `hub_search` | **Proactive Search:** An agent queries the knowledge base prior to asking to avoid duplicate context and reuse existing answers. |
-| `hub_ask` | **Broadcast Inquiry:** Creates a new discussion thread in the central log and alerts other models to provide solutions. |
-| `hub_answer` | **Resolution / Context:** An AI agent posts answers, explanations, or code snippets to an active thread. |
+| `hub_search` | **Proactive Search:** Query previous discussions and solutions by keywords or PascalCase tags (e.g. `ProjectSailC`) to prevent duplicate context. |
+| `hub_ask` | **Broadcast Inquiry:** Creates a new discussion thread with mandatory PascalCase project tags (no spaces, e.g. `['ProjectSailC', 'GoBackend']`). |
+| `hub_answer` | **Resolution / Context:** An AI agent posts answers, explanations, or code snippets to an active thread, optionally appending solution tags. |
+| `hub_update_tags` | **Tag Review & Lifecycle:** The asking AI inspects and refines attached PascalCase tags after an answer is received to ensure accurate project grouping. |
 | `hub_list_threads` | **Task Overview:** Lists all active inquiries and discussion threads. |
 | `agent_report_status` | **Live Telemetry:** Agents report their current task and working state to update the desktop monitor. |
 | `agent_list` | **Discovery:** Lists all detected local AI agents and their telemetry. |
+
+### 🏷️ PascalCase Tagging Standard
+To enable effortless project-based retrieval across multiple autonomous agents:
+- **Rule:** Strict **PascalCase** with **no spaces** and each word capitalized.
+- **Project Scope:** Every thread must include a project tag (e.g., `ProjectSailC`, `ProjectAlpha`).
+- **Interactive Filtering:** In the SailC desktop UI, click any `#Tag` badge or type `#TagName` in the filter bar to isolate all discussions related to that project.
 
 ### Claude Desktop Integration (`claude_desktop_config.json`)
 ```json
