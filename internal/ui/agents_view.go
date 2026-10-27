@@ -18,25 +18,25 @@ func (a *App) layoutAgentsTab(gtx layout.Context, pal brand.Palette) layout.Dime
 	agents := a.store.ListAgents()
 
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-		// Заголовок раздела
+		// Section title
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					lbl := material.Label(a.theme, unit.Sp(16), "Установленные и активные ИИ")
+					lbl := material.Label(a.theme, unit.Sp(16), "Installed & Detected AI Agents")
 					lbl.Color = pal.TextPrimary
 					lbl.Font.Weight = 600
 					return lbl.Layout(gtx)
 				}),
 				layout.Rigid(layout.Spacer{Height: unit.Dp(4)}.Layout),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					lbl := material.Label(a.theme, unit.Sp(13), "Аудит запущенных процессов, локальных нейросетевых движков и отслеживание задач")
+					lbl := material.Label(a.theme, unit.Sp(13), "Real-time process audit, local LLM endpoints, and background task tracker")
 					lbl.Color = pal.TextSecondary
 					return lbl.Layout(gtx)
 				}),
 			)
 		}),
 		layout.Rigid(layout.Spacer{Height: unit.Dp(brand.PaddingMedium)}.Layout),
-		// Список карточек
+		// List of cards
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			return material.List(a.theme, &a.agentList).Layout(gtx, len(agents), func(gtx layout.Context, i int) layout.Dimensions {
 				agent := agents[i]
@@ -62,7 +62,7 @@ func (a *App) layoutAgentCard(gtx layout.Context, agent *domain.Agent, pal brand
 			Axis:      layout.Horizontal,
 			Alignment: layout.Middle,
 		}.Layout(gtx,
-			// Индикатор статуса (точка)
+			// Status dot
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				var col = pal.StatusOffline
 				switch agent.Status {
@@ -74,12 +74,12 @@ func (a *App) layoutAgentCard(gtx layout.Context, agent *domain.Agent, pal brand
 				return DrawStatusDot(gtx, unit.Dp(5), col)
 			}),
 			layout.Rigid(layout.Spacer{Width: unit.Dp(14)}.Layout),
-			// Основная информация об агенте
+			// Main agent info
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
-							// Имя
+							// Name
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 								lbl := material.Label(a.theme, unit.Sp(15), agent.Name)
 								lbl.Color = pal.TextPrimary
@@ -87,7 +87,7 @@ func (a *App) layoutAgentCard(gtx layout.Context, agent *domain.Agent, pal brand
 								return lbl.Layout(gtx)
 							}),
 							layout.Rigid(layout.Spacer{Width: unit.Dp(10)}.Layout),
-							// Тип
+							// Type badge
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 								return DrawBadge(gtx, pal.StatusPillBg, func(gtx layout.Context) layout.Dimensions {
 									lbl := material.Label(a.theme, unit.Sp(11), agent.Type)
@@ -98,13 +98,13 @@ func (a *App) layoutAgentCard(gtx layout.Context, agent *domain.Agent, pal brand
 						)
 					}),
 					layout.Rigid(layout.Spacer{Height: unit.Dp(6)}.Layout),
-					// Текущая задача
+					// Current task
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						taskText := agent.CurrentTask
 						if taskText == "" {
-							taskText = "Нет активных задач"
+							taskText = "No active tasks"
 						}
-						lbl := material.Label(a.theme, unit.Sp(13), "Задача: "+taskText)
+						lbl := material.Label(a.theme, unit.Sp(13), "Task: "+taskText)
 						if agent.Status == domain.StatusWorking {
 							lbl.Color = pal.StatusWorking
 						} else {
@@ -115,7 +115,7 @@ func (a *App) layoutAgentCard(gtx layout.Context, agent *domain.Agent, pal brand
 				)
 			}),
 			layout.Rigid(layout.Spacer{Width: unit.Dp(16)}.Layout),
-			// Правая колонка: статус, счётчик задач и технические детали
+			// Right column: status badge and telemetry
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{
 					Axis:      layout.Vertical,
@@ -131,7 +131,7 @@ func (a *App) layoutAgentCard(gtx layout.Context, agent *domain.Agent, pal brand
 						}
 
 						return DrawBadge(gtx, pal.StatusPillBg, func(gtx layout.Context) layout.Dimensions {
-							lbl := material.Label(a.theme, unit.Sp(12), agent.Status.RussianLabel())
+							lbl := material.Label(a.theme, unit.Sp(12), agent.Status.Label())
 							lbl.Color = stColor
 							lbl.Font.Weight = 600
 							return lbl.Layout(gtx)
@@ -143,13 +143,13 @@ func (a *App) layoutAgentCard(gtx layout.Context, agent *domain.Agent, pal brand
 						if agent.PID > 0 {
 							meta = fmt.Sprintf("PID: %d", agent.PID)
 						} else if agent.Port > 0 {
-							meta = fmt.Sprintf("Порт: %d", agent.Port)
+							meta = fmt.Sprintf("Port: %d", agent.Port)
 						} else {
-							meta = "Служба не активна"
+							meta = "Service offline"
 						}
 
 						if agent.TaskCount > 0 {
-							meta += fmt.Sprintf(" • Задач: %d", agent.TaskCount)
+							meta += fmt.Sprintf(" • Tasks: %d", agent.TaskCount)
 						}
 
 						lbl := material.Label(a.theme, unit.Sp(11), meta)
@@ -162,7 +162,6 @@ func (a *App) layoutAgentCard(gtx layout.Context, agent *domain.Agent, pal brand
 	})
 	call := macro.Stop()
 
-	// Заливаем поверхность карточки (без рамок и без теней)
 	paint.FillShape(gtx.Ops, pal.Surface, clip.UniformRRect(image.Rect(0, 0, dims.Size.X, dims.Size.Y), gtx.Dp(unit.Dp(brand.RadiusNormal))).Op(gtx.Ops))
 	call.Add(gtx.Ops)
 	return dims

@@ -14,14 +14,14 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-// Scanner выполняет периодический аудит установленных и активных ИИ на компьютере.
+// Scanner performs periodic auditing of installed and active AI systems.
 type Scanner struct {
 	store    *domain.Store
 	interval time.Duration
 	stopCh   chan struct{}
 }
 
-// NewScanner создаёт новый экземпляр сканера.
+// NewScanner creates a new scanner instance.
 func NewScanner(store *domain.Store, interval time.Duration) *Scanner {
 	if interval < 2*time.Second {
 		interval = 3 * time.Second
@@ -33,9 +33,8 @@ func NewScanner(store *domain.Store, interval time.Duration) *Scanner {
 	}
 }
 
-// Start запускает фоновый процесс мониторинга.
+// Start begins the background monitoring loop.
 func (s *Scanner) Start() {
-	// Первичное мгновенное сканирование
 	s.scanOnce()
 
 	go func() {
@@ -53,7 +52,7 @@ func (s *Scanner) Start() {
 	}()
 }
 
-// Stop останавливает мониторинг.
+// Stop terminates the scanner.
 func (s *Scanner) Stop() {
 	close(s.stopCh)
 }
@@ -71,28 +70,28 @@ var knownAITargets = []targetAI{
 	{
 		ID:        "antigravity",
 		Name:      "Antigravity",
-		Type:      "IDE Ассистент / DeepMind",
+		Type:      "IDE Assistant / DeepMind",
 		ProcMatch: []string{"antigravity"},
 		Port:      0,
 	},
 	{
 		ID:        "claude",
 		Name:      "Claude Desktop",
-		Type:      "Десктопный ИИ / Anthropic",
+		Type:      "Desktop AI / Anthropic",
 		ProcMatch: []string{"claude"},
 		Port:      0,
 	},
 	{
 		ID:        "cursor",
 		Name:      "Cursor AI Editor",
-		Type:      "IDE Ассистент",
+		Type:      "IDE Assistant",
 		ProcMatch: []string{"cursor"},
 		Port:      0,
 	},
 	{
 		ID:        "ollama",
 		Name:      "Ollama Engine",
-		Type:      "Локальный LLM Сервер",
+		Type:      "Local LLM Server",
 		ProcMatch: []string{"ollama", "ollama_llama_server"},
 		Port:      11434,
 		TestURL:   "http://127.0.0.1:11434/api/tags",
@@ -100,7 +99,7 @@ var knownAITargets = []targetAI{
 	{
 		ID:        "lmstudio",
 		Name:      "LM Studio",
-		Type:      "Локальный инференс LLM",
+		Type:      "Local Inference Server",
 		ProcMatch: []string{"lmstudio", "lms"},
 		Port:      1234,
 		TestURL:   "http://127.0.0.1:1234/v1/models",
@@ -108,7 +107,7 @@ var knownAITargets = []targetAI{
 	{
 		ID:        "vscode_copilot",
 		Name:      "VS Code Copilot",
-		Type:      "IDE Ассистент",
+		Type:      "IDE Assistant",
 		ProcMatch: []string{"code"},
 		Port:      0,
 	},
@@ -121,7 +120,7 @@ func (s *Scanner) scanOnce() {
 		var matchedPID int
 		var isRunning bool
 
-		// 1. Поиск по процессам
+		// 1. Process matching
 		for _, nameMatch := range target.ProcMatch {
 			if pids, ok := runningProcs[strings.ToLower(nameMatch)]; ok && len(pids) > 0 {
 				isRunning = true
@@ -130,7 +129,7 @@ func (s *Scanner) scanOnce() {
 			}
 		}
 
-		// 2. Проверка сетевого порта, если указан
+		// 2. Port check
 		var portOpen bool
 		var extraTaskInfo string
 		if target.Port > 0 {
@@ -141,13 +140,11 @@ func (s *Scanner) scanOnce() {
 				isRunning = true
 			}
 
-			// Если порт открыт и есть URL, попытаемся узнать загруженные модели
 			if target.TestURL != "" && portOpen {
 				extraTaskInfo = fetchActiveModels(target.TestURL)
 			}
 		}
 
-		// Определяем текущее состояние в Store
 		existing, hasExisting := s.store.GetAgent(target.ID)
 		status := domain.StatusOffline
 		taskCount := 0
@@ -164,10 +161,10 @@ func (s *Scanner) scanOnce() {
 				taskCount = 1
 				taskDesc = extraTaskInfo
 			} else {
-				taskDesc = "Ожидание запросов"
+				taskDesc = "Awaiting tasks"
 			}
 		} else {
-			taskDesc = "Служба не запущена"
+			taskDesc = "Service offline"
 		}
 
 		agent := &domain.Agent{
@@ -217,13 +214,12 @@ func fetchActiveModels(url string) string {
 			names = append(names, d.ID)
 		}
 		if len(names) > 0 {
-			return "Загружены модели: " + strings.Join(names, ", ")
+			return "Loaded models: " + strings.Join(names, ", ")
 		}
 	}
-	return "Активен API сервер"
+	return "API server active"
 }
 
-// getRunningProcesses использует Windows Toolhelp32 для быстрого снятия снимка процессов
 func getRunningProcesses() map[string][]int {
 	procs := make(map[string][]int)
 

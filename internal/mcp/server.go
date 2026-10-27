@@ -11,13 +11,13 @@ import (
 	"github.com/sergio-ilin/sailc/internal/domain"
 )
 
-// Server реализует спецификацию Model Context Protocol (MCP) для координации ИИ.
+// Server implements Model Context Protocol (MCP) specifications for AI agents.
 type Server struct {
 	store    *domain.Store
 	httpPort int
 }
 
-// NewServer инициализирует сервер MCP.
+// NewServer initializes the MCP server.
 func NewServer(store *domain.Store, port int) *Server {
 	if port <= 0 {
 		port = 8765
@@ -28,15 +28,14 @@ func NewServer(store *domain.Store, port int) *Server {
 	}
 }
 
-// StartHTTP запускает HTTP/SSE транспорт MCP в фоновом режиме.
+// StartHTTP launches the HTTP/SSE JSON-RPC transport in background.
 func (s *Server) StartHTTP() error {
 	mux := http.NewServeMux()
 
-	// JSON-RPC / MCP эндпоинт
 	mux.HandleFunc("/mcp", s.handleJSONRPC)
 	mux.HandleFunc("/rpc", s.handleJSONRPC)
 
-	// Дополнительный дружелюбный REST API для скриптов и Multipass
+	// REST API endpoints
 	mux.HandleFunc("/api/threads", s.handleRESTThreads)
 	mux.HandleFunc("/api/search", s.handleRESTSearch)
 	mux.HandleFunc("/api/agents", s.handleRESTAgents)
@@ -57,7 +56,7 @@ func (s *Server) StartHTTP() error {
 	return nil
 }
 
-// Port возвращает порт сервера.
+// Port returns the server port.
 func (s *Server) Port() int {
 	return s.httpPort
 }
@@ -98,13 +97,13 @@ func (s *Server) handleJSONRPC(w http.ResponseWriter, r *http.Request) {
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		writeError(w, nil, -32700, "Ошибка чтения тела запроса")
+		writeError(w, nil, -32700, "Error reading request body")
 		return
 	}
 
 	var req rpcRequest
 	if err := json.Unmarshal(body, &req); err != nil {
-		writeError(w, nil, -32700, "Некорректный JSON")
+		writeError(w, nil, -32700, "Malformed JSON")
 		return
 	}
 
@@ -164,12 +163,12 @@ func (s *Server) executeMethod(method string, paramsRaw json.RawMessage) (interf
 			Arguments map[string]interface{} `json:"arguments"`
 		}
 		if err := json.Unmarshal(paramsRaw, &callParams); err != nil {
-			return nil, &rpcError{Code: -32602, Message: "Неверные параметры tools/call"}
+			return nil, &rpcError{Code: -32602, Message: "Invalid parameters for tools/call"}
 		}
 		return s.callTool(callParams.Name, callParams.Arguments)
 
 	default:
-		return nil, &rpcError{Code: -32601, Message: fmt.Sprintf("Метод '%s' не поддерживается", method)}
+		return nil, &rpcError{Code: -32601, Message: fmt.Sprintf("Method '%s' not supported", method)}
 	}
 }
 
@@ -177,13 +176,13 @@ func (s *Server) getToolsManifest() []map[string]interface{} {
 	return []map[string]interface{}{
 		{
 			"name":        "hub_search",
-			"description": "Поиск по центральному логу и базе знаний перед тем как задавать вопрос. Позволяет узнать, решалась ли эта задача ранее и какой был ответ.",
+			"description": "Proactive context search across previous discussions and solutions. Use before asking new questions to avoid duplicate context.",
 			"inputSchema": map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
 					"query": map[string]string{
 						"type":        "string",
-						"description": "Ключевые слова или суть задачи для поиска в логе",
+						"description": "Search keywords, error messages, or task summary",
 					},
 				},
 				"required": []string{"query"},
@@ -191,26 +190,26 @@ func (s *Server) getToolsManifest() []map[string]interface{} {
 		},
 		{
 			"name":        "hub_ask",
-			"description": "Задать вопрос в центральный лог хаба, если не хватает данных или контекста по задаче. Создаёт новый тред обсуждения и уведомляет другие локальные ИИ.",
+			"description": "Publish a new inquiry or task to the shared log when context or information is missing. Triggers other local AI agents to supply answers.",
 			"inputSchema": map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
 					"author": map[string]string{
 						"type":        "string",
-						"description": "Имя вашего ИИ-агента (например: Antigravity, Claude, Ollama)",
+						"description": "Your AI agent identifier (e.g. Antigravity, Claude, Ollama)",
 					},
 					"title": map[string]string{
 						"type":        "string",
-						"description": "Краткая тема или вопрос (1 строка)",
+						"description": "One-line task summary or question",
 					},
 					"content": map[string]string{
 						"type":        "string",
-						"description": "Подробный контекст, суть проблемы или что требуется решить",
+						"description": "Full context, question details, or code snippets",
 					},
 					"tags": map[string]interface{}{
 						"type":        "array",
 						"items":       map[string]string{"type": "string"},
-						"description": "Теги (опционально, например: ['go', 'api', 'docker'])",
+						"description": "Task tags (e.g. ['go', 'api', 'docker'])",
 					},
 				},
 				"required": []string{"author", "title", "content"},
@@ -218,21 +217,21 @@ func (s *Server) getToolsManifest() []map[string]interface{} {
 		},
 		{
 			"name":        "hub_answer",
-			"description": "Дать ответ или дополнить контекст в существующем треде обсуждения центрального лога.",
+			"description": "Provide a solution, answer, or additional context to an existing discussion thread.",
 			"inputSchema": map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
 					"thread_id": map[string]string{
 						"type":        "string",
-						"description": "ID треда, на который даётся ответ",
+						"description": "Target thread identifier",
 					},
 					"author": map[string]string{
 						"type":        "string",
-						"description": "Имя вашего ИИ-агента",
+						"description": "Your AI agent identifier",
 					},
 					"content": map[string]string{
 						"type":        "string",
-						"description": "Текст ответа, рекомендация или кусок кода",
+						"description": "Solution, advice, or code response",
 					},
 				},
 				"required": []string{"thread_id", "author", "content"},
@@ -240,29 +239,29 @@ func (s *Server) getToolsManifest() []map[string]interface{} {
 		},
 		{
 			"name":        "hub_list_threads",
-			"description": "Получить список последних вопросов и обсуждений в центральном логе.",
+			"description": "Retrieve the latest discussion threads and tasks from the central log.",
 			"inputSchema": map[string]interface{}{
 				"type": "object",
 			},
 		},
 		{
 			"name":        "agent_report_status",
-			"description": "Сообщить центральному хабу SailC о текущей активности или выполняемой задаче ИИ.",
+			"description": "Report current active task and state to the SailC live monitor.",
 			"inputSchema": map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
 					"agent_id": map[string]string{
 						"type":        "string",
-						"description": "Идентификатор агента (например, 'claude', 'antigravity', 'custom-bot')",
+						"description": "Agent identifier (e.g. 'claude', 'antigravity', 'custom-bot')",
 					},
 					"task_description": map[string]string{
 						"type":        "string",
-						"description": "Что агент делает прямо сейчас",
+						"description": "What the agent is currently working on",
 					},
 					"status": map[string]interface{}{
 						"type":        "string",
 						"enum":        []string{"working", "online", "offline"},
-						"description": "Рабочее состояние",
+						"description": "Operational state",
 					},
 				},
 				"required": []string{"agent_id", "task_description"},
@@ -270,7 +269,7 @@ func (s *Server) getToolsManifest() []map[string]interface{} {
 		},
 		{
 			"name":        "agent_list",
-			"description": "Получить список всех обнаруженных ИИ на компьютере и их текущий статус.",
+			"description": "Get a list of all detected local AI agents and their current status.",
 			"inputSchema": map[string]interface{}{
 				"type": "object",
 			},
@@ -286,7 +285,7 @@ func (s *Server) callTool(name string, args map[string]interface{}) (interface{}
 		raw, _ := json.MarshalIndent(results, "", "  ")
 		return map[string]interface{}{
 			"content": []map[string]interface{}{
-				{"type": "text", "text": fmt.Sprintf("Найдено результатов: %d\n\n%s", len(results), string(raw))},
+				{"type": "text", "text": fmt.Sprintf("Found %d matching threads:\n\n%s", len(results), string(raw))},
 			},
 		}, nil
 
@@ -304,7 +303,7 @@ func (s *Server) callTool(name string, args map[string]interface{}) (interface{}
 		}
 
 		if author == "" || title == "" || content == "" {
-			return nil, &rpcError{Code: -32602, Message: "Поля author, title и content обязательны"}
+			return nil, &rpcError{Code: -32602, Message: "Fields author, title, and content are required"}
 		}
 
 		thr := s.store.CreateThread(author, title, content, tags)
@@ -312,7 +311,7 @@ func (s *Server) callTool(name string, args map[string]interface{}) (interface{}
 			"content": []map[string]interface{}{
 				{
 					"type": "text",
-					"text": fmt.Sprintf("Вопрос опубликован в центральном логе SailC!\nID треда: %s\nСтатус: Ожидает ответа других ИИ.", thr.ID),
+					"text": fmt.Sprintf("Thread published to SailC Central Log!\nThread ID: %s\nStatus: Awaiting answers from other AI agents.", thr.ID),
 				},
 			},
 			"thread_id": thr.ID,
@@ -324,7 +323,7 @@ func (s *Server) callTool(name string, args map[string]interface{}) (interface{}
 		content, _ := args["content"].(string)
 
 		if threadID == "" || author == "" || content == "" {
-			return nil, &rpcError{Code: -32602, Message: "Поля thread_id, author и content обязательны"}
+			return nil, &rpcError{Code: -32602, Message: "Fields thread_id, author, and content are required"}
 		}
 
 		resp, err := s.store.AddResponse(threadID, author, content)
@@ -336,7 +335,7 @@ func (s *Server) callTool(name string, args map[string]interface{}) (interface{}
 			"content": []map[string]interface{}{
 				{
 					"type": "text",
-					"text": fmt.Sprintf("Ответ успешно добавлен в тред %s от имени '%s'. ID ответа: %s", threadID, author, resp.ID),
+					"text": fmt.Sprintf("Response added to thread %s by '%s'. Response ID: %s", threadID, author, resp.ID),
 				},
 			},
 		}, nil
@@ -365,7 +364,7 @@ func (s *Server) callTool(name string, args map[string]interface{}) (interface{}
 		agent := &domain.Agent{
 			ID:          agentID,
 			Name:        agentID,
-			Type:        "MCP Агент",
+			Type:        "MCP Agent",
 			Status:      st,
 			CurrentTask: desc,
 			TaskCount:   1,
@@ -377,7 +376,7 @@ func (s *Server) callTool(name string, args map[string]interface{}) (interface{}
 			"content": []map[string]interface{}{
 				{
 					"type": "text",
-					"text": fmt.Sprintf("Статус агента %s обновлён: '%s' (%s)", agentID, desc, st.RussianLabel()),
+					"text": fmt.Sprintf("Agent status for %s updated: '%s' (%s)", agentID, desc, st.Label()),
 				},
 			},
 		}, nil
@@ -392,7 +391,7 @@ func (s *Server) callTool(name string, args map[string]interface{}) (interface{}
 		}, nil
 
 	default:
-		return nil, &rpcError{Code: -32601, Message: fmt.Sprintf("Инструмент '%s' не найден", name)}
+		return nil, &rpcError{Code: -32601, Message: fmt.Sprintf("Tool '%s' not found", name)}
 	}
 }
 
@@ -423,7 +422,7 @@ func (s *Server) handleRESTThreads(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
+	http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 }
 
 func (s *Server) handleRESTSearch(w http.ResponseWriter, r *http.Request) {
@@ -448,14 +447,14 @@ func (s *Server) handleRESTReportStatus(w http.ResponseWriter, r *http.Request) 
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
 	if r.Method != "POST" {
-		http.Error(w, "Только POST", http.StatusMethodNotAllowed)
+		http.Error(w, "Only POST allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
 	var req struct {
-		AgentID     string `json:"agent_id"`
-		TaskDesc    string `json:"task_description"`
-		Status      string `json:"status"`
+		AgentID  string `json:"agent_id"`
+		TaskDesc string `json:"task_description"`
+		Status   string `json:"status"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -472,7 +471,7 @@ func (s *Server) handleRESTReportStatus(w http.ResponseWriter, r *http.Request) 
 	agent := &domain.Agent{
 		ID:          req.AgentID,
 		Name:        req.AgentID,
-		Type:        "REST Агент",
+		Type:        "REST Agent",
 		Status:      st,
 		CurrentTask: req.TaskDesc,
 		TaskCount:   1,
@@ -483,7 +482,7 @@ func (s *Server) handleRESTReportStatus(w http.ResponseWriter, r *http.Request) 
 	_ = json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
 
-// RunStdio запускает MCP сервер через стандартный ввод/вывод (для прямого подключения к LLM как CLI инструмент).
+// RunStdio executes the MCP server over standard I/O (for direct IDE/CLI tool pairing).
 func (s *Server) RunStdio() {
 	decoder := json.NewDecoder(os.Stdin)
 	encoder := json.NewEncoder(os.Stdout)

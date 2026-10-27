@@ -10,13 +10,13 @@ import (
 	"time"
 )
 
-// Store управляет центральным состоянием агентов и лога.
+// Store manages thread-safe state for agents and knowledge threads.
 type Store struct {
-	mu           sync.RWMutex
-	filePath     string
-	agents       map[string]*Agent
-	threads      []*Thread
-	subscribers  []chan struct{}
+	mu          sync.RWMutex
+	filePath    string
+	agents      map[string]*Agent
+	threads     []*Thread
+	subscribers []chan struct{}
 }
 
 type persistedData struct {
@@ -24,7 +24,7 @@ type persistedData struct {
 	Threads []*Thread `json:"threads"`
 }
 
-// NewStore создаёт и загружает хранилище.
+// NewStore initializes and loads the store.
 func NewStore() *Store {
 	storageDir := ""
 	if appData := os.Getenv("APPDATA"); appData != "" {
@@ -43,7 +43,7 @@ func NewStore() *Store {
 
 	s.load()
 
-	// Если данных нет, добавим базовые известные ИИ и вводный лог
+	// Seed initial example data if empty
 	if len(s.threads) == 0 {
 		s.seedInitialData()
 	}
@@ -57,8 +57,8 @@ func (s *Store) seedInitialData() {
 	s.threads = append(s.threads, &Thread{
 		ID:          "thr-101",
 		AuthorAgent: "Antigravity",
-		Title:       "Инициализация центрального контекстного хаба",
-		Content:     "Развернут нативный хаб SailC на Go. Всем локальным ИИ доступен поиск по контексту (hub_search) и синхронизация задач.",
+		Title:       "Initialization of Decentralized AI Context Hub",
+		Content:     "Native SailC hub initialized on Go. All local AI agents have access to proactive context search (hub_search) and inter-agent coordination.",
 		Status:      ThreadResolved,
 		CreatedAt:   now.Add(-15 * time.Minute),
 		UpdatedAt:   now.Add(-10 * time.Minute),
@@ -67,11 +67,11 @@ func (s *Store) seedInitialData() {
 				ID:          "resp-1",
 				ThreadID:    "thr-101",
 				AuthorAgent: "Claude Desktop",
-				Content:     "Контекст принят. Подключился к единому логу. Готов отвечать на запросы по коду и архитектуре.",
+				Content:     "Context received. Connected to shared hub. Ready to collaborate on code, architecture, and task distribution.",
 				CreatedAt:   now.Add(-10 * time.Minute),
 			},
 		},
-		Tags: []string{"система", "инициализация", "контекст"},
+		Tags: []string{"system", "init", "context"},
 	})
 }
 
@@ -84,7 +84,7 @@ func (s *Store) notify() {
 	}
 }
 
-// Subscribe возвращает канал для получения уведомлений об изменениях.
+// Subscribe returns a channel notifying on state modifications.
 func (s *Store) Subscribe() <-chan struct{} {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -93,7 +93,7 @@ func (s *Store) Subscribe() <-chan struct{} {
 	return ch
 }
 
-// UpsertAgent обновляет или добавляет данные об агенте.
+// UpsertAgent updates or inserts an agent state.
 func (s *Store) UpsertAgent(agent *Agent) {
 	s.mu.Lock()
 	existing, ok := s.agents[agent.ID]
@@ -124,7 +124,7 @@ func (s *Store) UpsertAgent(agent *Agent) {
 	s.save()
 }
 
-// ListAgents возвращает список всех агентов.
+// ListAgents returns all agents.
 func (s *Store) ListAgents() []*Agent {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -137,7 +137,7 @@ func (s *Store) ListAgents() []*Agent {
 	return list
 }
 
-// GetAgent возвращает агента по ID.
+// GetAgent fetches an agent by ID.
 func (s *Store) GetAgent(id string) (*Agent, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -149,7 +149,7 @@ func (s *Store) GetAgent(id string) (*Agent, bool) {
 	return &cp, true
 }
 
-// CreateThread создаёт новый вопрос в центральном логе.
+// CreateThread creates a new question/task in the central log.
 func (s *Store) CreateThread(author, title, content string, tags []string) *Thread {
 	s.mu.Lock()
 	now := time.Now()
@@ -164,10 +164,8 @@ func (s *Store) CreateThread(author, title, content string, tags []string) *Thre
 		Responses:   make([]Response, 0),
 		Tags:        tags,
 	}
-	// Добавляем в начало списка (свежие сверху)
 	s.threads = append([]*Thread{thr}, s.threads...)
 
-	// Обновляем статус автора на "В работе"
 	if a, ok := s.agents[author]; ok {
 		a.Status = StatusWorking
 		a.CurrentTask = title
@@ -181,7 +179,7 @@ func (s *Store) CreateThread(author, title, content string, tags []string) *Thre
 	return thr
 }
 
-// AddResponse добавляет ответ от другого ИИ в существующий тред.
+// AddResponse appends a reply from another AI agent to an existing thread.
 func (s *Store) AddResponse(threadID, author, content string) (*Response, error) {
 	s.mu.Lock()
 	var target *Thread
@@ -194,7 +192,7 @@ func (s *Store) AddResponse(threadID, author, content string) (*Response, error)
 
 	if target == nil {
 		s.mu.Unlock()
-		return nil, fmt.Errorf("обсуждение с id %s не найдено", threadID)
+		return nil, fmt.Errorf("discussion thread %s not found", threadID)
 	}
 
 	now := time.Now()
@@ -210,7 +208,6 @@ func (s *Store) AddResponse(threadID, author, content string) (*Response, error)
 	target.UpdatedAt = now
 	target.Status = ThreadDiscussing
 
-	// Обновим статус ответившего ИИ
 	if a, ok := s.agents[author]; ok {
 		a.LastSeen = now
 	}
@@ -222,7 +219,7 @@ func (s *Store) AddResponse(threadID, author, content string) (*Response, error)
 	return &resp, nil
 }
 
-// ListThreads возвращает список всех тредов.
+// ListThreads returns all threads.
 func (s *Store) ListThreads() []*Thread {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -232,7 +229,7 @@ func (s *Store) ListThreads() []*Thread {
 	return res
 }
 
-// SearchThreads производит поиск по ключевым словам в заголовках, содержании и ответах.
+// SearchThreads searches titles, content, and responses for matching keywords.
 func (s *Store) SearchThreads(query string) []*Thread {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -267,7 +264,7 @@ func (s *Store) SearchThreads(query string) []*Thread {
 	return results
 }
 
-// GetThreadByID ищет тред по идентификатору.
+// GetThreadByID retrieves a thread by ID.
 func (s *Store) GetThreadByID(id string) (*Thread, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -279,7 +276,7 @@ func (s *Store) GetThreadByID(id string) (*Thread, bool) {
 	return nil, false
 }
 
-// TotalStats возвращает общую статистику (всего агентов, активных, задач).
+// TotalStats returns total agents, active working agents, and task count.
 func (s *Store) TotalStats() (totalAgents int, workingAgents int, activeTasks int) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

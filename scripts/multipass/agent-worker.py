@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
 SailC Multipass VM Agent Worker.
-Автономный агент, работающий внутри виртуальной машины Multipass,
-выполняющий опрос хаба SailC, поиск контекста и публикацию решений.
+Autonomous agent running inside an Ubuntu Multipass VM,
+performing proactive context queries, status reporting, and resolution sharing.
 """
 
 import argparse
@@ -31,49 +31,49 @@ def call_mcp_tool(hub_url: str, tool_name: str, arguments: dict):
             data = json.loads(resp.read().decode("utf-8"))
             return data.get("result", {})
     except Exception as e:
-        print(f"[!] Ошибка связи с SailC Hub ({hub_url}): {e}")
+        print(f"[!] Communication error with SailC Hub ({hub_url}): {e}")
         return None
 
 def main():
     parser = argparse.ArgumentParser(description="SailC VM Agent Worker")
-    parser.add_argument("--hub", default="http://127.0.0.1:8765", help="URL центрального хаба SailC")
-    parser.add_argument("--name", default="Multipass-Worker-1", help="Имя ИИ агента")
+    parser.add_argument("--hub", default="http://127.0.0.1:8765", help="SailC Central Hub URL")
+    parser.add_argument("--name", default="Multipass-Worker-1", help="AI agent name")
     args = parser.parse_args()
 
-    print(f"=== Запуск агента '{args.name}' ===")
-    print(f"[*] Подключение к центральному хабу: {args.hub}")
+    print(f"=== Starting Agent '{args.name}' ===")
+    print(f"[*] Connecting to Central Hub: {args.hub}")
 
-    # 1. Отправляем отчёт о статусе агента
+    # 1. Report live status
     res = call_mcp_tool(args.hub, "agent_report_status", {
         "agent_id": args.name,
-        "task_description": "Мониторинг открытых вопросов в хабе",
+        "task_description": "Auditing open tasks in central hub",
         "status": "working"
     })
     if res:
-        print("[+] Статус успешно передан в нативный монитор SailC!")
+        print("[+] Telemetry successfully posted to SailC monitor!")
 
-    # 2. Поиск предыдущих обсуждений (демонстрация обязательного поиска перед вопросом)
-    print("\n[*] Шаг 1: Проверка базы знаний перед созданием вопроса (hub_search)...")
+    # 2. Search before asking
+    print("\n[*] Step 1: Proactive knowledge search before asking (hub_search)...")
     search_res = call_mcp_tool(args.hub, "hub_search", {"query": "Go"})
-    print(f"[+] Результат поиска по контексту:\n{json.dumps(search_res, indent=2, ensure_ascii=False)}")
+    print(f"[+] Knowledge search result:\n{json.dumps(search_res, indent=2, ensure_ascii=False)}")
 
-    # 3. Публикация нового вопроса от агента из VM
-    print("\n[*] Шаг 2: Создание задачи в центральном логе (hub_ask)...")
+    # 3. Publish new inquiry
+    print("\n[*] Step 2: Creating new inquiry in shared log (hub_ask)...")
     ask_res = call_mcp_tool(args.hub, "hub_ask", {
         "author": args.name,
-        "title": "Синхронизация фоновых воркеров через Multipass",
-        "content": "Воркер запущен в изолированной среде Ubuntu. Требуется ли настроить распределённый кэш для контекста?",
+        "title": "Multipass Worker Coordination & Distributed Cache",
+        "content": "Worker active inside isolated Ubuntu environment. Should we configure distributed caching for context passing?",
         "tags": ["multipass", "vm", "cache"]
     })
-    print(f"[+] Задача создана:\n{json.dumps(ask_res, indent=2, ensure_ascii=False)}")
+    print(f"[+] Inquiry created:\n{json.dumps(ask_res, indent=2, ensure_ascii=False)}")
 
-    # 4. Обновление статуса на режим ожидания
+    # 4. Set idle status
     call_mcp_tool(args.hub, "agent_report_status", {
         "agent_id": args.name,
-        "task_description": "Ожидание ответов от хостовых ИИ",
+        "task_description": "Awaiting responses from host AI agents",
         "status": "online"
     })
-    print("\n[+] Цикл инициализации завершён. Агент активен в хабе SailC.")
+    print("\n[+] Initialization complete. Agent active in SailC Hub.")
 
 if __name__ == "__main__":
     main()

@@ -25,7 +25,7 @@ const (
 	tabIntegration
 )
 
-// App инкапсулирует состояние и интерфейс окна SailC.
+// App manages the SailC native desktop user interface.
 type App struct {
 	store    *domain.Store
 	detector *theme.Detector
@@ -38,10 +38,10 @@ type App struct {
 	btnLog     widget.Clickable
 	btnInteg   widget.Clickable
 
-	// Список агентов
+	// Agent monitor list
 	agentList widget.List
 
-	// Центральный лог
+	// Central Log
 	logList       widget.List
 	selectedThrID string
 	searchEditor  widget.Editor
@@ -53,16 +53,15 @@ type App struct {
 	btnSubmitAsk  widget.Clickable
 	btnCancelAsk  widget.Clickable
 
-	// Добавление ответа
+	// Replies
 	replyBodyEdit   widget.Editor
 	replyAuthorEdit widget.Editor
 	btnSubmitReply  widget.Clickable
 
-	// Прокрутка деталей
 	detailList widget.List
 }
 
-// NewApp инициализирует UI приложения.
+// NewApp initializes the UI controller.
 func NewApp(store *domain.Store, detector *theme.Detector, mcpPort int) *App {
 	th := material.NewTheme()
 	a := &App{
@@ -89,14 +88,14 @@ func NewApp(store *domain.Store, detector *theme.Detector, mcpPort int) *App {
 	return a
 }
 
-// Run запускает главный цикл графического окна.
+// Run executes the native window event loop.
 func (a *App) Run() error {
 	a.window = new(app.Window)
-	a.window.Option(app.Title("SailC — Хаб координации локальных ИИ"))
+	a.window.Option(app.Title("SailC — Local AI Coordination Hub"))
 	a.window.Option(app.Size(unit.Dp(1080), unit.Dp(720)))
 	a.window.Option(app.MinSize(unit.Dp(800), unit.Dp(560)))
 
-	// Подписка на обновление данных в Store для немедленной перерисовки
+	// Subscribe to store updates for reactive redraws
 	storeUpdates := a.store.Subscribe()
 	go func() {
 		for range storeUpdates {
@@ -106,7 +105,7 @@ func (a *App) Run() error {
 		}
 	}()
 
-	// Подписка на изменение темы в Windows
+	// Subscribe to OS theme changes
 	a.detector.OnChange(func(_ brand.Palette) {
 		if a.window != nil {
 			a.window.Invalidate()
@@ -129,10 +128,8 @@ func (a *App) Run() error {
 func (a *App) layout(gtx layout.Context) layout.Dimensions {
 	pal := a.detector.GetPalette()
 
-	// Заливка основного холста
 	paint.Fill(gtx.Ops, pal.Canvas)
 
-	// Проверка переключения вкладок
 	if a.btnAgents.Clicked(gtx) {
 		a.currentTab = tabAgents
 	}
@@ -146,11 +143,11 @@ func (a *App) layout(gtx layout.Context) layout.Dimensions {
 	return layout.Flex{
 		Axis: layout.Vertical,
 	}.Layout(gtx,
-		// 1. Верхний заголовок и навигация
+		// Header bar
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return a.layoutHeader(gtx, pal)
 		}),
-		// 2. Основная рабочая область с отступами и воздухом
+		// Content area with generous air and padding
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{
 				Top:    unit.Dp(brand.PaddingNormal),
@@ -174,7 +171,6 @@ func (a *App) layout(gtx layout.Context) layout.Dimensions {
 }
 
 func (a *App) layoutHeader(gtx layout.Context, pal brand.Palette) layout.Dimensions {
-	// Подложка шапки без рамок и без теней
 	macro := op.Record(gtx.Ops)
 	dims := layout.Inset{
 		Top:    unit.Dp(14),
@@ -186,12 +182,12 @@ func (a *App) layoutHeader(gtx layout.Context, pal brand.Palette) layout.Dimensi
 			Axis:      layout.Horizontal,
 			Alignment: layout.Middle,
 		}.Layout(gtx,
-			// Логотип SailC
+			// SailC Vector Brand Logo
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return DrawSailLogo(gtx, unit.Dp(30), pal.Accent)
 			}),
 			layout.Rigid(layout.Spacer{Width: unit.Dp(12)}.Layout),
-			// Название и статус
+			// Title and tagline
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -201,34 +197,34 @@ func (a *App) layoutHeader(gtx layout.Context, pal brand.Palette) layout.Dimensi
 						return lbl.Layout(gtx)
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						lbl := material.Label(a.theme, unit.Sp(11), "Единый контекстный хаб локальных ИИ")
+						lbl := material.Label(a.theme, unit.Sp(11), "Central Knowledge Hub for Local AI Agents")
 						lbl.Color = pal.TextSecondary
 						return lbl.Layout(gtx)
 					}),
 				)
 			}),
 			layout.Rigid(layout.Spacer{Width: unit.Dp(28)}.Layout),
-			// Вкладки
+			// Nav tabs
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return a.layoutTabButton(gtx, &a.btnAgents, "ИИ на компьютере", a.currentTab == tabAgents, pal)
+						return a.layoutTabButton(gtx, &a.btnAgents, "AI Agents", a.currentTab == tabAgents, pal)
 					}),
 					layout.Rigid(layout.Spacer{Width: unit.Dp(8)}.Layout),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return a.layoutTabButton(gtx, &a.btnLog, "Центральный лог", a.currentTab == tabLog, pal)
+						return a.layoutTabButton(gtx, &a.btnLog, "Central Log", a.currentTab == tabLog, pal)
 					}),
 					layout.Rigid(layout.Spacer{Width: unit.Dp(8)}.Layout),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return a.layoutTabButton(gtx, &a.btnInteg, "Интеграция MCP", a.currentTab == tabIntegration, pal)
+						return a.layoutTabButton(gtx, &a.btnInteg, "MCP Protocol", a.currentTab == tabIntegration, pal)
 					}),
 				)
 			}),
 			layout.Flexed(1, layout.Spacer{}.Layout),
-			// Статистика хаба
+			// Live statistics badge
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				tot, work, tasks := a.store.TotalStats()
-				infoText := fmt.Sprintf("MCP: :%d  •  Активно ИИ: %d/%d  •  Задач: %d", a.mcpPort, work, tot, tasks)
+				infoText := fmt.Sprintf("MCP: :%d  •  Active AI: %d/%d  •  Tasks: %d", a.mcpPort, work, tot, tasks)
 				return DrawBadge(gtx, pal.StatusPillBg, func(gtx layout.Context) layout.Dimensions {
 					lbl := material.Label(a.theme, unit.Sp(12), infoText)
 					lbl.Color = pal.TextSecondary
@@ -239,7 +235,6 @@ func (a *App) layoutHeader(gtx layout.Context, pal brand.Palette) layout.Dimensi
 	})
 	call := macro.Stop()
 
-	// Заливаем подложку шапки
 	paint.FillShape(gtx.Ops, pal.Surface, clip.Rect{Max: dims.Size}.Op())
 	call.Add(gtx.Ops)
 	return dims

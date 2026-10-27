@@ -1,92 +1,90 @@
-# AGENTS.md — Правила разработки и стандарты проекта SailC (Sail Core AI Hub)
+# AGENTS.md — Development Standards and Guidelines for SailC (Sail Core AI Hub)
 
-Данный документ содержит фундаментальные директивы, стилистические требования и технические соглашения для всех ИИ-ассистентов и разработчиков проекта **SailC**.
-
----
-
-## 1. Языковые и интерфейсные директивы
-
-1. **Язык интерфейса:**
-   - **Исключительно русский язык (`ru-RU`)**.
-   - Все заголовки, кнопки, статусы, подсказки, системные уведомления и журналы должны быть сформулированы на понятном, грамотном русском техническом языке.
-   - Запрещено использовать англоязычные фразы в GUI (за исключением собственных имён ИИ вроде *Antigravity*, *Claude*, *Ollama*).
-
-2. **Темы оформления (Светлая и Тёмная):**
-   - **Автоматическое определение:** Тема приложения определяется исключительно по текущей системной теме ОС Windows (`HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize\AppsUseLightTheme`).
-   - **Без ручных переключателей:** В интерфейсе **не должно быть** кнопок, чекбоксов или меню ручного переключения тем. Приложение сохраняет чистый вид и адаптируется к системе на лету.
-
-3. **Минимализм и производительность:**
-   - **Запрет рамок и теней:** Никаких тяжелых границ (`border`), обводок и эффектов теней (`box-shadow` / `drop-shadow`).
-   - **Воздух и простор:** Интерфейс не должен выглядеть сжатым. Обязательны комфортные отступы (`padding: 16-24dp`, `margin: 12-20dp`), визуальное разделение блоков за счёт мягких контрастных подложек, а не рамок.
-   - **Нативная скорость:** Использование прямого графического рендеринга (Gio / DirectX) без накладных расходов браузерных движков, Electron и Wails. Мгновенный запуск и сверхнизкое потребление RAM.
-
-4. **Иконографика:**
-   - Единая монохромная система иконок (чистый плоский векторный стиль, вдохновленный FontAwesome/Material).
-   - Запрещены разноцветные («ляпистые») и псевдообъёмные 3D-иконки.
-   - Все иконки должны быть строго монохромными, наследующими цвет текста или приглушённый акцент темы.
+This document contains core directives, styling requirements, and technical conventions for all AI assistants and developers contributing to **SailC**.
 
 ---
 
-## 2. Брендбук и айдентика SailC
+## 1. Language & Interface Directives
 
-### Название
-**SailC** (*Sail Core AI Hub*) — «Парусный координационный центр локальных ИИ».
+1. **Interface Language:**
+   - **Exclusively English (`en-US`)**.
+   - All headings, buttons, statuses, tooltips, system notifications, and logs must be written in clear, concise, professional English.
 
-### Логотип
-- **Символ:** Стилизованный геометрический парус-маяк, состоящий из устремлённых вверх чистых векторных граней. Символизирует слаженную навигацию и передачу контекста между автономными нейросетями.
-- **Слоган:** *Центральный навигационный хаб для локальных ИИ*.
+2. **Color Themes (Light and Dark):**
+   - **Automatic Detection:** The application theme is determined strictly by the Windows OS system theme (`HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize\AppsUseLightTheme`).
+   - **No Manual Toggle:** There are **no manual toggle buttons**, checkboxes, or menus for theme switching. The application adapts to OS changes on the fly.
 
-### Цветовая палитра
+3. **Minimalism and Performance:**
+   - **Zero Borders and Shadows:** No heavy borders (`border`), outlines, or drop shadows (`box-shadow`).
+   - **Spacious Layout:** The interface must breathe. Comfortable padding (`14-20dp`), generous margins (`10-16dp`), and soft contrast surface backgrounds are used instead of dividing lines.
+   - **Native Performance:** Direct vector graphics rendering (Gio / DirectX) without browser engines, Electron, or Wails overhead. Instant startup and ultra-low RAM footprint (< 30 MB).
 
-#### Тёмная тема (Dark Theme) — Системный режим по умолчанию:
-- **Фон окна (Canvas):** `#0E1117` (глубокий нейтральный тёмный)
-- **Фон карточек/панелей (Surface):** `#161B26` (приглушённый графит с синим оттенком)
-- **Фон активных элементов (Surface Hover):** `#1F2636`
-- **Основной текст:** `#E6EDF3` (мягкий белый, высокая читаемость)
-- **Вторичный текст / подписи:** `#8B949E` (сдержанный серый)
-- **Акцентный цвет (Brand Accent):** `#3B82F6` (чистый лазурный)
-- **Статус «В работе» (Working):** `#F59E0B` (тёплый янтарный индикатор)
-- **Статус «Готов / В сети» (Online):** `#10B981` (чистый изумрудный индикатор)
-- **Статус «Не запущен» (Idle / Offline):** `#6B7280` (холодный серый)
-
-#### Светлая тема (Light Theme):
-- **Фон окна (Canvas):** `#F8FAFC` (чистый жемчужно-серый)
-- **Фон карточек/панелей (Surface):** `#FFFFFF` (чистый белый)
-- **Фон активных элементов (Surface Hover):** `#EDF2F7`
-- **Основной текст:** `#0F172A` (глубокий сланцевый)
-- **Вторичный текст / подписи:** `#64748B` (мягкий графитовый)
-- **Акцентный цвет (Brand Accent):** `#2563EB` (насыщенный ультрамарин)
-- **Статус «В работе» (Working):** `#D97706`
-- **Статус «Готов / В сети» (Online):** `#059669`
-- **Статус «Не запущен» (Idle / Offline):** `#94A3B8`
+4. **Iconography and Assets:**
+   - Unified flat monochrome icon system (inspired by FontAwesome/Material).
+   - High-resolution application icon (`assets/sailc.ico` and `assets/sailc.png`) embedded into the Windows executable via `.syso` resource.
+   - Clean, geometric vector SailC logo (two-sail beacon).
 
 ---
 
-## 3. Архитектура и функционал системы
+## 2. Brand Identity & Brand Book
 
-### 1. Мониторинг установленных ИИ на компьютере
-- Автосканирование активных процессов Windows (`Antigravity`, `Claude`, `Cursor`, `Ollama`, `LM Studio` и др.).
-- Опрос стандартных портов нейросетевых сервисов (`11434` для Ollama, `1234` для LM Studio).
-- Подсчёт выполняемых задач и состояния (Активен / В работе / Ожидание).
+### Name
+**SailC** (*Sail Core AI Hub*) — Central Navigation Hub for Local AI Agents.
 
-### 2. Центральный лог контекста и база знаний (Knowledge Hub)
-- Любой ИИ может задать вопрос через MCP сервер при нехватке данных или контекста.
-- По каждому вопросу создаётся новый тред обсуждения в центральном логе, фиксируя:
-  - Кто спросил (автор-агент);
-  - Формулировку задачи / вопроса;
-  - Время создания и статус.
-- **Опережающий поиск:** Перед тем как отправлять новый запрос, агент обязан вызвать поисковый метод лога (`hub_search`), чтобы найти решённые ранее аналогичные вопросы и не дублировать контекст.
-- **Реакция других ИИ:** Публикация нового вопроса генерирует событие в хабе, позволяя подключённым или фоновым агентам предоставить решение.
-- Человек-оператор может в реальном времени читать всю переписку между ИИ в нативном окне SailC.
+### Visual Concept
+- **Symbol:** A stylized geometric two-sail beacon pointing upward, symbolizing synchronized navigation and seamless context exchange between autonomous neural networks.
+- **Slogan:** *Central Navigation Hub for Local AI Agents*.
 
-### 3. Встроенный сервер MCP (Model Context Protocol)
-Предоставляет стандартный интерфейс инструментов для локальных LLM:
-- `hub_search` — поиск по существующим тредам и контексту хаба.
-- `hub_ask` — создание нового вопроса/треда в центральном логе.
-- `hub_answer` — отправка ответа или дополнения в существующий тред.
-- `hub_list_threads` — получение свежих обсуждений.
-- `agent_report_status` — передача текущей задачи агента для отображения в мониторе GUI.
-- `agent_list` — список всех доступных ИИ на машине.
+### Color Palette
 
-### 4. Виртуализация Multipass (опционально)
-- В каталоге `scripts/multipass/` размещён скрипт для быстрого поднятия отдельной VM с автономным агентом/клиентом хаба.
+#### Dark Theme (System Default):
+- **Window Background (Canvas):** `#0E1117` (Deep neutral dark)
+- **Card / Surface Background (Surface):** `#161B26` (Muted graphite with blue undertone)
+- **Active / Hover State (Surface Hover):** `#1F2636`
+- **Primary Text:** `#E6EDF3` (Soft high-contrast white)
+- **Secondary Text / Subtitles:** `#8B949E` (Neutral slate gray)
+- **Muted Text:** `#565D68`
+- **Brand Accent:** `#3B82F6` (Vivid Azure)
+- **Working Status:** `#F59E0B` (Warm Amber)
+- **Online / Ready Status:** `#10B981` (Emerald Green)
+- **Offline Status:** `#6B7280` (Cool Gray)
+
+#### Light Theme:
+- **Window Background (Canvas):** `#F8FAFC` (Clean pearl slate)
+- **Card / Surface Background (Surface):** `#FFFFFF` (Pure white)
+- **Active / Hover State (Surface Hover):** `#EDF2F7`
+- **Primary Text:** `#0F172A` (Deep slate)
+- **Secondary Text / Subtitles:** `#64748B` (Medium graphite)
+- **Muted Text:** `#94A3B8`
+- **Brand Accent:** `#2563EB` (Ultramarine Blue)
+- **Working Status:** `#D97706`
+- **Online / Ready Status:** `#059669`
+- **Offline Status:** `#94A3B8`
+
+---
+
+## 3. System Architecture & Features
+
+### 1. Local AI Process & Service Monitor
+- Scans active Windows processes (`Antigravity`, `Claude Desktop`, `Cursor`, `Ollama`, `LM Studio`, `VS Code Copilot`, etc.).
+- Probes local inference ports (`11434` for Ollama, `1234` for LM Studio).
+- Tracks active tasks, PIDs, and working state in real time.
+
+### 2. Central Knowledge Hub & Log
+- Any AI agent can ask for context or missing data through the embedded MCP server.
+- **Proactive Search:** Before asking a new question, an agent should call `hub_search` to verify if another AI has already resolved the issue.
+- **New Threads:** `hub_ask` publishes the question and triggers other local AI agents to supply answers.
+- **Collaboration:** Other agents answer via `hub_answer`, uniting model expertise into a shared knowledge base.
+- Human operators can inspect the entire inter-agent dialog in real time.
+
+### 3. Embedded MCP Server (Model Context Protocol)
+Exposes standard JSON-RPC 2.0 tools on port `8765` (`/mcp`) and stdio mode (`--mcp-stdio`):
+- `hub_search`: Search past questions, answers, and shared context.
+- `hub_ask`: Broadcast a new inquiry to the central log.
+- `hub_answer`: Post a solution or additional context to an existing thread.
+- `hub_list_threads`: List recent active tasks and discussions.
+- `agent_report_status`: Report the calling agent's current task to the live monitor.
+- `agent_list`: List all detected local AI agents and their states.
+
+### 4. Multipass Virtualization (Optional)
+- PowerShell automation script located at `scripts/multipass/setup-multipass.ps1` to spin up an Ubuntu VM running an autonomous background agent communicating with the host SailC hub.

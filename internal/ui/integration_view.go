@@ -24,20 +24,20 @@ func (a *App) layoutIntegrationTab(gtx layout.Context, pal brand.Palette) layout
 		Body  string
 	}{
 		{
-			Title: "1. Принцип работы протокола SailC MCP Hub",
-			Body: fmt.Sprintf("Приложение поднимает встроенный легковесный сервер Model Context Protocol на порту %d.\nЛюбой ИИ на компьютере (или в виртуальной машине) может обращаться к хабу через JSON-RPC / HTTP POST /mcp.", a.mcpPort),
+			Title: "1. SailC Model Context Protocol (MCP) Architecture",
+			Body: fmt.Sprintf("The application hosts a lightweight, embedded Model Context Protocol (MCP) server on port %d.\nAny local or remote AI agent (including VMs) can communicate with the hub via JSON-RPC 2.0 / HTTP POST at /mcp or via stdio mode (--mcp-stdio).", a.mcpPort),
 		},
 		{
-			Title: "2. Доступные инструменты для ИИ-агентов",
-			Body: "• hub_search(query): обязательный опережающий поиск перед вопросом, чтобы не дублировать контекст.\n• hub_ask(author, title, content): создание нового треда вопроса в центральном логе.\n• hub_answer(thread_id, author, content): публикация ответа или дополнения контекста от другого ИИ.\n• agent_report_status(agent_id, task_description, status): передача текущей задачи в монитор SailC.\n• hub_list_threads(): получение последних открытых задач хаба.",
+			Title: "2. MCP Tool Suite for Autonomous Agents",
+			Body: "• hub_search(query): Proactive context search before asking questions to prevent duplicate work.\n• hub_ask(author, title, content): Publish a new discussion thread in the shared knowledge log.\n• hub_answer(thread_id, author, content): Post a resolution, insight, or code snippet to a thread.\n• agent_report_status(agent_id, task_description, status): Live telemetry of agent tasks in the SailC UI.\n• hub_list_threads(): Retrieve the latest open inquiries across the network.",
 		},
 		{
-			Title: "3. Подключение к Claude Desktop",
-			Body: fmt.Sprintf("Добавьте секцию в свой claude_desktop_config.json:\n{\n  \"mcpServers\": {\n    \"sailc\": {\n      \"url\": \"http://127.0.0.1:%d/mcp\"\n    }\n  }\n}", a.mcpPort),
+			Title: "3. Claude Desktop Configuration",
+			Body: fmt.Sprintf("Add the following entry to your claude_desktop_config.json:\n{\n  \"mcpServers\": {\n    \"sailc\": {\n      \"url\": \"http://127.0.0.1:%d/mcp\"\n    }\n  }\n}", a.mcpPort),
 		},
 		{
-			Title: "4. Автоматизация в Multipass VM",
-			Body: "Для запуска изолированного фонового агента в Ubuntu Multipass используйте готовый скрипт:\nPowerShell: .\\scripts\\multipass\\setup-multipass.ps1\nАгент в VM мгновенно подключается к хостовому порту хаба и синхронизирует задачи.",
+			Title: "4. Multipass VM Virtualization",
+			Body: "To run an isolated headless agent worker inside an Ubuntu Linux VM, execute:\nPowerShell: .\\scripts\\multipass\\setup-multipass.ps1\nThe agent in the VM connects immediately to the host hub port and synchronizes context.",
 		},
 	}
 
@@ -45,14 +45,14 @@ func (a *App) layoutIntegrationTab(gtx layout.Context, pal brand.Palette) layout
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					lbl := material.Label(a.theme, unit.Sp(16), "Руководство по интеграции и MCP протоколу")
+					lbl := material.Label(a.theme, unit.Sp(16), "Integration Guide & MCP Protocol")
 					lbl.Color = pal.TextPrimary
 					lbl.Font.Weight = 600
 					return lbl.Layout(gtx)
 				}),
 				layout.Rigid(layout.Spacer{Height: unit.Dp(4)}.Layout),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					lbl := material.Label(a.theme, unit.Sp(13), "Спецификация для подключения Antigravity, Claude, Cursor, Ollama и виртуальных агентов")
+					lbl := material.Label(a.theme, unit.Sp(13), "Specification for connecting Antigravity, Claude, Cursor, Ollama, and virtual workers")
 					lbl.Color = pal.TextSecondary
 					return lbl.Layout(gtx)
 				}),

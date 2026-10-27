@@ -28,7 +28,6 @@ func getThreadClick(id string) *widget.Clickable {
 }
 
 func (a *App) layoutLogTab(gtx layout.Context, pal brand.Palette) layout.Dimensions {
-	// Обработка поискового запроса
 	searchQuery := a.searchEditor.Text()
 	threads := a.store.SearchThreads(searchQuery)
 
@@ -45,10 +44,10 @@ func (a *App) layoutLogTab(gtx layout.Context, pal brand.Palette) layout.Dimensi
 		content := strings.TrimSpace(a.askBodyEdit.Text())
 		author := strings.TrimSpace(a.askAuthorEdit.Text())
 		if author == "" {
-			author = "Оператор"
+			author = "Operator"
 		}
 		if title != "" && content != "" {
-			thr := a.store.CreateThread(author, title, content, []string{"общий-контекст"})
+			thr := a.store.CreateThread(author, title, content, []string{"general-context"})
 			a.selectedThrID = thr.ID
 			a.newAskActive = false
 			a.askTitleEdit.SetText("")
@@ -60,7 +59,7 @@ func (a *App) layoutLogTab(gtx layout.Context, pal brand.Palette) layout.Dimensi
 		replyText := strings.TrimSpace(a.replyBodyEdit.Text())
 		author := strings.TrimSpace(a.replyAuthorEdit.Text())
 		if author == "" {
-			author = "Оператор"
+			author = "Operator"
 		}
 		if replyText != "" && a.selectedThrID != "" {
 			_, _ = a.store.AddResponse(a.selectedThrID, author, replyText)
@@ -68,33 +67,32 @@ func (a *App) layoutLogTab(gtx layout.Context, pal brand.Palette) layout.Dimensi
 		}
 	}
 
-	// Если тред не выбран, выберем первый доступный
 	if a.selectedThrID == "" && len(threads) > 0 {
 		a.selectedThrID = threads[0].ID
 	}
 
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-		// Панель управления поиском и созданием вопроса
+		// Control & search bar
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return a.layoutLogControlBar(gtx, pal)
 		}),
 		layout.Rigid(layout.Spacer{Height: unit.Dp(brand.PaddingNormal)}.Layout),
-		// Форма добавления нового вопроса (если развёрнута)
+		// New question form (collapsible)
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if !a.newAskActive {
 				return layout.Dimensions{}
 			}
 			return a.layoutNewAskForm(gtx, pal)
 		}),
-		// Двухколоночный интерфейс: Список тредов слева, Детали и ответы справа
+		// Two-column master-detail layout
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
-				// Левая колонка: список тредов
+				// Left pane: threads list
 				layout.Flexed(0.45, func(gtx layout.Context) layout.Dimensions {
 					return a.layoutThreadsList(gtx, threads, pal)
 				}),
 				layout.Rigid(layout.Spacer{Width: unit.Dp(brand.PaddingNormal)}.Layout),
-				// Правая колонка: детали выбранного треда и переписка ИИ
+				// Right pane: thread detail & replies
 				layout.Flexed(0.55, func(gtx layout.Context) layout.Dimensions {
 					return a.layoutThreadDetail(gtx, pal)
 				}),
@@ -108,7 +106,7 @@ func (a *App) layoutLogControlBar(gtx layout.Context, pal brand.Palette) layout.
 		Axis:      layout.Horizontal,
 		Alignment: layout.Middle,
 	}.Layout(gtx,
-		// Поле поиска по контексту
+		// Search input
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			macro := op.Record(gtx.Ops)
 			dims := layout.Inset{
@@ -117,7 +115,7 @@ func (a *App) layoutLogControlBar(gtx layout.Context, pal brand.Palette) layout.
 				Left:   unit.Dp(14),
 				Right:  unit.Dp(14),
 			}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				ed := material.Editor(a.theme, &a.searchEditor, "Поиск по контексту и логам (агенты ищут здесь перед вопросом)...")
+				ed := material.Editor(a.theme, &a.searchEditor, "Search context & knowledge base before asking...")
 				ed.Color = pal.TextPrimary
 				ed.HintColor = pal.TextMuted
 				ed.TextSize = unit.Sp(13)
@@ -130,11 +128,11 @@ func (a *App) layoutLogControlBar(gtx layout.Context, pal brand.Palette) layout.
 			return dims
 		}),
 		layout.Rigid(layout.Spacer{Width: unit.Dp(12)}.Layout),
-		// Кнопка "Задать вопрос"
+		// New question button
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			btnText := "+ Задать вопрос в хаб"
+			btnText := "+ Ask Question in Hub"
 			if a.newAskActive {
-				btnText = "Скрыть форму"
+				btnText = "Hide Form"
 			}
 			return material.Clickable(gtx, &a.btnNewAsk, func(gtx layout.Context) layout.Dimensions {
 				macro := op.Record(gtx.Ops)
@@ -173,37 +171,37 @@ func (a *App) layoutNewAskForm(gtx layout.Context, pal brand.Palette) layout.Dim
 	}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				lbl := material.Label(a.theme, unit.Sp(14), "Публикация нового вопроса в центральный лог")
+				lbl := material.Label(a.theme, unit.Sp(14), "Publish New Inquiry to Shared Log")
 				lbl.Color = pal.TextPrimary
 				lbl.Font.Weight = 600
 				return lbl.Layout(gtx)
 			}),
 			layout.Rigid(layout.Spacer{Height: unit.Dp(10)}.Layout),
-			// Автор и тема
+			// Author and Topic
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
 					layout.Flexed(0.3, func(gtx layout.Context) layout.Dimensions {
-						return a.layoutSimpleInput(gtx, &a.askAuthorEdit, "Имя ИИ / автора", pal)
+						return a.layoutSimpleInput(gtx, &a.askAuthorEdit, "AI Agent / Author name", pal)
 					}),
 					layout.Rigid(layout.Spacer{Width: unit.Dp(10)}.Layout),
 					layout.Flexed(0.7, func(gtx layout.Context) layout.Dimensions {
-						return a.layoutSimpleInput(gtx, &a.askTitleEdit, "Краткая суть задачи / вопроса", pal)
+						return a.layoutSimpleInput(gtx, &a.askTitleEdit, "Task summary / Question topic", pal)
 					}),
 				)
 			}),
 			layout.Rigid(layout.Spacer{Height: unit.Dp(10)}.Layout),
-			// Подробный контекст
+			// Body
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return a.layoutSimpleInput(gtx, &a.askBodyEdit, "Подробный контекст, фрагменты кода или точная постановка проблемы...", pal)
+				return a.layoutSimpleInput(gtx, &a.askBodyEdit, "Detailed context, code snippet, or exact problem definition...", pal)
 			}),
 			layout.Rigid(layout.Spacer{Height: unit.Dp(12)}.Layout),
-			// Кнопки
+			// Action buttons
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return material.Clickable(gtx, &a.btnSubmitAsk, func(gtx layout.Context) layout.Dimensions {
 							return DrawBadge(gtx, pal.Accent, func(gtx layout.Context) layout.Dimensions {
-								lbl := material.Label(a.theme, unit.Sp(13), "Опубликовать в лог")
+								lbl := material.Label(a.theme, unit.Sp(13), "Publish to Log")
 								lbl.Color = pal.Canvas
 								lbl.Font.Weight = 600
 								return lbl.Layout(gtx)
@@ -214,7 +212,7 @@ func (a *App) layoutNewAskForm(gtx layout.Context, pal brand.Palette) layout.Dim
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return material.Clickable(gtx, &a.btnCancelAsk, func(gtx layout.Context) layout.Dimensions {
 							return DrawBadge(gtx, pal.SurfaceElevated, func(gtx layout.Context) layout.Dimensions {
-								lbl := material.Label(a.theme, unit.Sp(13), "Отмена")
+								lbl := material.Label(a.theme, unit.Sp(13), "Cancel")
 								lbl.Color = pal.TextSecondary
 								return lbl.Layout(gtx)
 							})
@@ -255,7 +253,7 @@ func (a *App) layoutSimpleInput(gtx layout.Context, ed *widget.Editor, placehold
 func (a *App) layoutThreadsList(gtx layout.Context, threads []*domain.Thread, pal brand.Palette) layout.Dimensions {
 	if len(threads) == 0 {
 		return layout.Inset{Top: unit.Dp(20)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			lbl := material.Label(a.theme, unit.Sp(13), "Обсуждений не найдено. Нажмите «Задать вопрос», чтобы начать.")
+			lbl := material.Label(a.theme, unit.Sp(13), "No discussions found. Click '+ Ask Question in Hub' to begin.")
 			lbl.Color = pal.TextSecondary
 			return lbl.Layout(gtx)
 		})
@@ -281,7 +279,7 @@ func (a *App) layoutThreadsList(gtx layout.Context, threads []*domain.Thread, pa
 					Right:  unit.Dp(14),
 				}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-						// Заголовок вопроса и статус
+						// Title and status
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -302,7 +300,7 @@ func (a *App) layoutThreadsList(gtx layout.Context, threads []*domain.Thread, pa
 							)
 						}),
 						layout.Rigid(layout.Spacer{Height: unit.Dp(6)}.Layout),
-						// Сниппет содержания
+						// Content snippet
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							snippet := thr.Content
 							if len(snippet) > 100 {
@@ -313,11 +311,11 @@ func (a *App) layoutThreadsList(gtx layout.Context, threads []*domain.Thread, pa
 							return lbl.Layout(gtx)
 						}),
 						layout.Rigid(layout.Spacer{Height: unit.Dp(6)}.Layout),
-						// Мета-информация (кол-во ответов и время)
+						// Meta (responses, status, time)
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							meta := fmt.Sprintf("Ответов: %d  •  %s  •  %s",
+							meta := fmt.Sprintf("Responses: %d  •  %s  •  %s",
 								len(thr.Responses),
-								thr.Status.RussianLabel(),
+								thr.Status.Label(),
 								thr.CreatedAt.Format("15:04"),
 							)
 							lbl := material.Label(a.theme, unit.Sp(11), meta)
@@ -347,7 +345,7 @@ func (a *App) layoutThreadDetail(gtx layout.Context, pal brand.Palette) layout.D
 	thr, ok := a.store.GetThreadByID(a.selectedThrID)
 	if !ok || thr == nil {
 		return layout.Inset{Top: unit.Dp(20)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			lbl := material.Label(a.theme, unit.Sp(13), "Выберите обсуждение слева для просмотра деталей.")
+			lbl := material.Label(a.theme, unit.Sp(13), "Select a discussion thread from the left to view details.")
 			lbl.Color = pal.TextSecondary
 			return lbl.Layout(gtx)
 		})
@@ -361,7 +359,7 @@ func (a *App) layoutThreadDetail(gtx layout.Context, pal brand.Palette) layout.D
 		Right:  unit.Dp(18),
 	}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-			// Заголовок треда
+			// Title and status
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
@@ -372,7 +370,7 @@ func (a *App) layoutThreadDetail(gtx layout.Context, pal brand.Palette) layout.D
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return DrawBadge(gtx, pal.StatusPillBg, func(gtx layout.Context) layout.Dimensions {
-							lbl := material.Label(a.theme, unit.Sp(12), thr.Status.RussianLabel())
+							lbl := material.Label(a.theme, unit.Sp(12), thr.Status.Label())
 							lbl.Color = pal.Accent
 							return lbl.Layout(gtx)
 						})
@@ -380,15 +378,15 @@ func (a *App) layoutThreadDetail(gtx layout.Context, pal brand.Palette) layout.D
 				)
 			}),
 			layout.Rigid(layout.Spacer{Height: unit.Dp(6)}.Layout),
-			// Автор и время
+			// Author & timestamp
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				info := fmt.Sprintf("Автор: %s  •  Опубликовано: %s", thr.AuthorAgent, thr.CreatedAt.Format("02.01 15:04:05"))
+				info := fmt.Sprintf("Author: %s  •  Published: %s", thr.AuthorAgent, thr.CreatedAt.Format("Jan 02 15:04:05"))
 				lbl := material.Label(a.theme, unit.Sp(12), info)
 				lbl.Color = pal.TextSecondary
 				return lbl.Layout(gtx)
 			}),
 			layout.Rigid(layout.Spacer{Height: unit.Dp(12)}.Layout),
-			// Текст вопроса / контекст
+			// Question / Context box
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				macro := op.Record(gtx.Ops)
 				dims := layout.Inset{
@@ -408,19 +406,19 @@ func (a *App) layoutThreadDetail(gtx layout.Context, pal brand.Palette) layout.D
 				return dims
 			}),
 			layout.Rigid(layout.Spacer{Height: unit.Dp(16)}.Layout),
-			// Заголовок блока ответов
+			// Responses header
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				lbl := material.Label(a.theme, unit.Sp(13), fmt.Sprintf("Ответы и решения от других ИИ (%d):", len(thr.Responses)))
+				lbl := material.Label(a.theme, unit.Sp(13), fmt.Sprintf("Responses & Solutions from other AI agents (%d):", len(thr.Responses)))
 				lbl.Color = pal.TextSecondary
 				lbl.Font.Weight = 600
 				return lbl.Layout(gtx)
 			}),
 			layout.Rigid(layout.Spacer{Height: unit.Dp(10)}.Layout),
-			// Список ответов
+			// Responses list
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				if len(thr.Responses) == 0 {
 					return layout.Inset{Top: unit.Dp(10)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						lbl := material.Label(a.theme, unit.Sp(12), "Другие ИИ ещё не предоставили ответ. Они могут ответить через MCP метод hub_answer.")
+						lbl := material.Label(a.theme, unit.Sp(12), "No responses yet. Other AI agents can reply using the hub_answer MCP tool.")
 						lbl.Color = pal.TextMuted
 						return lbl.Layout(gtx)
 					})
@@ -472,21 +470,21 @@ func (a *App) layoutThreadDetail(gtx layout.Context, pal brand.Palette) layout.D
 				})
 			}),
 			layout.Rigid(layout.Spacer{Height: unit.Dp(12)}.Layout),
-			// Поле отправки ответа
+			// Submit reply input bar
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 					layout.Flexed(0.25, func(gtx layout.Context) layout.Dimensions {
-						return a.layoutSimpleInput(gtx, &a.replyAuthorEdit, "Автор ответа", pal)
+						return a.layoutSimpleInput(gtx, &a.replyAuthorEdit, "Author name", pal)
 					}),
 					layout.Rigid(layout.Spacer{Width: unit.Dp(8)}.Layout),
 					layout.Flexed(0.6, func(gtx layout.Context) layout.Dimensions {
-						return a.layoutSimpleInput(gtx, &a.replyBodyEdit, "Написать ответ или подсказку...", pal)
+						return a.layoutSimpleInput(gtx, &a.replyBodyEdit, "Write solution or context hint...", pal)
 					}),
 					layout.Rigid(layout.Spacer{Width: unit.Dp(8)}.Layout),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return material.Clickable(gtx, &a.btnSubmitReply, func(gtx layout.Context) layout.Dimensions {
 							return DrawBadge(gtx, pal.Accent, func(gtx layout.Context) layout.Dimensions {
-								lbl := material.Label(a.theme, unit.Sp(12), "Ответить")
+								lbl := material.Label(a.theme, unit.Sp(12), "Reply")
 								lbl.Color = pal.Canvas
 								lbl.Font.Weight = 600
 								return lbl.Layout(gtx)

@@ -4,44 +4,44 @@ import (
 	"time"
 )
 
-// ThreadStatus определяет статус обсуждения в логе.
+// ThreadStatus defines the status of a discussion thread in the central log.
 type ThreadStatus string
 
 const (
-	ThreadOpen       ThreadStatus = "open"       // Вопрос открыт, ожидает ответов
-	ThreadDiscussing ThreadStatus = "discussing" // Идёт активный обмен контекстом
-	ThreadResolved   ThreadStatus = "resolved"   // Вопрос решён, ответ получен
+	ThreadOpen       ThreadStatus = "open"       // Open, awaiting answers
+	ThreadDiscussing ThreadStatus = "discussing" // Active context exchange in progress
+	ThreadResolved   ThreadStatus = "resolved"   // Resolved, solution provided
 )
 
-// RussianLabel возвращает русскоязычное обозначение статуса треда.
-func (s ThreadStatus) RussianLabel() string {
+// Label returns the human-readable English label for the thread status.
+func (s ThreadStatus) Label() string {
 	switch s {
 	case ThreadOpen:
-		return "Ожидает ответа"
+		return "Awaiting Answer"
 	case ThreadDiscussing:
-		return "В обсуждении"
+		return "Discussing"
 	case ThreadResolved:
-		return "Решено"
+		return "Resolved"
 	default:
-		return "В процессе"
+		return "In Progress"
 	}
 }
 
-// Response представляет ответ или дополнение контекста от другого ИИ.
+// Response represents an answer or context addition from another AI agent.
 type Response struct {
 	ID          string    `json:"id"`
 	ThreadID    string    `json:"thread_id"`
-	AuthorAgent string    `json:"author_agent"` // Имя ответившего ИИ
-	Content     string    `json:"content"`      // Текст ответа / контекст
+	AuthorAgent string    `json:"author_agent"` // Name of the responding AI
+	Content     string    `json:"content"`      // Answer or code snippet
 	CreatedAt   time.Time `json:"created_at"`
 }
 
-// Thread представляет запись в центральном логе (вопрос/задача одного ИИ к остальным).
+// Thread represents a central log entry (an inquiry from one AI to the rest).
 type Thread struct {
 	ID          string       `json:"id"`
-	AuthorAgent string       `json:"author_agent"` // Кто задал вопрос
-	Title       string       `json:"title"`        // Краткая формулировка задачи
-	Content     string       `json:"content"`      // Развёрнутый вопрос / контекст
+	AuthorAgent string       `json:"author_agent"` // Who asked
+	Title       string       `json:"title"`        // Short task summary
+	Content     string       `json:"content"`      // Detailed question and context
 	Status      ThreadStatus `json:"status"`
 	CreatedAt   time.Time    `json:"created_at"`
 	UpdatedAt   time.Time    `json:"updated_at"`

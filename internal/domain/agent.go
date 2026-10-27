@@ -4,39 +4,39 @@ import (
 	"time"
 )
 
-// AgentStatus определяет рабочее состояние ИИ-агента.
+// AgentStatus represents the active operating state of an AI agent.
 type AgentStatus string
 
 const (
-	StatusWorking AgentStatus = "working" // Выполняет задачи
-	StatusOnline  AgentStatus = "online"  // Запущен и готов к работе
-	StatusOffline AgentStatus = "offline" // Не запущен в системе
+	StatusWorking AgentStatus = "working" // Currently executing tasks
+	StatusOnline  AgentStatus = "online"  // Active and ready for requests
+	StatusOffline AgentStatus = "offline" // Process / service not detected
 )
 
-// RussianLabel возвращает русскоязычное обозначение статуса.
-func (s AgentStatus) RussianLabel() string {
+// Label returns the human-readable English label for the status.
+func (s AgentStatus) Label() string {
 	switch s {
 	case StatusWorking:
-		return "В работе"
+		return "Working"
 	case StatusOnline:
-		return "Готов"
+		return "Ready"
 	case StatusOffline:
-		return "Не запущен"
+		return "Offline"
 	default:
-		return "Неизвестно"
+		return "Unknown"
 	}
 }
 
-// Agent представляет установленный или подключённый ИИ на компьютере.
+// Agent represents an installed or connected AI on the machine.
 type Agent struct {
 	ID          string      `json:"id"`
 	Name        string      `json:"name"`
-	Type        string      `json:"type"`        // Например: "IDE Ассистент", "Локальная LLM", "MCP Агент"
+	Type        string      `json:"type"`         // e.g., "IDE Assistant", "Local LLM Engine", "Desktop AI"
 	Status      AgentStatus `json:"status"`
-	CurrentTask string      `json:"current_task"` // Краткое описание текущей выполняемой задачи
-	TaskCount   int         `json:"task_count"`   // Количество активных задач
+	CurrentTask string      `json:"current_task"` // Summary of current active task
+	TaskCount   int         `json:"task_count"`   // Number of active tasks
 	PID         int         `json:"pid"`
 	Port        int         `json:"port"`
 	LastSeen    time.Time   `json:"last_seen"`
-	IsManaged   bool        `json:"is_managed"` // Обнаружен автоматически процессом или зарегистрирован по MCP
+	IsManaged   bool        `json:"is_managed"`   // Discovered via process scan or registered via MCP
 }
