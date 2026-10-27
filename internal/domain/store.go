@@ -13,16 +13,18 @@ import (
 
 // Store manages thread-safe state for agents and knowledge threads.
 type Store struct {
-	mu          sync.RWMutex
-	filePath    string
-	agents      map[string]*Agent
-	threads     []*Thread
-	subscribers []chan struct{}
+	mu            sync.RWMutex
+	filePath      string
+	agents        map[string]*Agent
+	configuredIDs map[string]bool
+	threads       []*Thread
+	subscribers   []chan struct{}
 }
 
 type persistedData struct {
-	Agents  []*Agent  `json:"agents"`
-	Threads []*Thread `json:"threads"`
+	Agents        []*Agent  `json:"agents"`
+	ConfiguredIDs []string  `json:"configured_ids"`
+	Threads       []*Thread `json:"threads"`
 }
 
 // NewStore initializes and loads the store.
@@ -37,9 +39,10 @@ func NewStore() *Store {
 	dataFile := filepath.Join(storageDir, "hub_data.json")
 
 	s := &Store{
-		filePath: dataFile,
-		agents:   make(map[string]*Agent),
-		threads:  make([]*Thread, 0),
+		filePath:      dataFile,
+		agents:        make(map[string]*Agent),
+		configuredIDs: make(map[string]bool),
+		threads:       make([]*Thread, 0),
 	}
 
 	s.load()
@@ -94,12 +97,47 @@ func (s *Store) Subscribe() <-chan struct{} {
 	return ch
 }
 
+// AddConfiguredAgent marks an agent as actively connected by the user.
+func (s *Store) AddConfiguredAgent(id string) {
+	s.mu.Lock()
+	s.configuredIDs[id] = true
+	if a, ok := s.agents[id]; ok {
+		a.IsConfigured = true
+	}
+	s.mu.Unlock()
+
+	s.notify()
+	s.save()
+}
+
+// RemoveConfiguredAgent disconnects an agent from the active view.
+func (s *Store) RemoveConfiguredAgent(id string) {
+	s.mu.Lock()
+	delete(s.configuredIDs, id)
+	if a, ok := s.agents[id]; ok {
+		a.IsConfigured = false
+	}
+	s.mu.Unlock()
+
+	s.notify()
+	s.save()
+}
+
+// IsAgentConfigured checks if an agent has been added.
+func (s *Store) IsAgentConfigured(id string) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.configuredIDs[id]
+}
+
 // UpsertAgent updates or inserts an agent state.
-// Only notifies subscribers when meaningful fields actually change.
 func (s *Store) UpsertAgent(agent *Agent) {
 	s.mu.Lock()
 	existing, ok := s.agents[agent.ID]
 	changed := false
+
+	isConfigured := s.configuredIDs[agent.ID]
+	agent.IsConfigured = isConfigured
 
 	if ok {
 		if existing.Status != agent.Status ||
@@ -107,7 +145,8 @@ func (s *Store) UpsertAgent(agent *Agent) {
 			existing.TaskCount != agent.TaskCount ||
 			existing.PID != agent.PID ||
 			existing.Port != agent.Port ||
-			existing.Source != agent.Source {
+			existing.Source != agent.Source ||
+			existing.IsConfigured != agent.IsConfigured {
 			changed = true
 		}
 		existing.Name = agent.Name
@@ -115,6 +154,7 @@ func (s *Store) UpsertAgent(agent *Agent) {
 		existing.Source = agent.Source
 		existing.Status = agent.Status
 		existing.SortOrder = agent.SortOrder
+		existing.IsConfigured = isConfigured
 		existing.CurrentTask = agent.CurrentTask
 		existing.TaskCount = agent.TaskCount
 		existing.PID = agent.PID
@@ -133,7 +173,30 @@ func (s *Store) UpsertAgent(agent *Agent) {
 	}
 }
 
-// ListAgents returns all agents in a stable, deterministic sort order.
+// ListConfiguredAgents returns only agents that have been explicitly added/configured.
+func (s *Store) ListConfiguredAgents() []*Agent {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	list := make([]*Agent, 0)
+	for id := range s.configuredIDs {
+		if a, ok := s.agents[id]; ok {
+			copyAgent := *a
+			list = append(list, &copyAgent)
+		}
+	}
+
+	sort.Slice(list, func(i, j int) bool {
+		if list[i].SortOrder != list[j].SortOrder {
+			return list[i].SortOrder < list[j].SortOrder
+		}
+		return list[i].Name < list[j].Name
+	})
+
+	return list
+}
+
+// ListAgents returns all agents (for MCP and internal queries).
 func (s *Store) ListAgents() []*Agent {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -144,7 +207,6 @@ func (s *Store) ListAgents() []*Agent {
 		list = append(list, &copyAgent)
 	}
 
-	// Strictly stable sort by SortOrder, then by Name
 	sort.Slice(list, func(i, j int) bool {
 		if list[i].SortOrder != list[j].SortOrder {
 			return list[i].SortOrder < list[j].SortOrder
@@ -228,7 +290,6 @@ func (s *Store) AddResponse(threadID, author, content string, additionalTags []s
 	target.UpdatedAt = now
 	target.Status = ThreadDiscussing
 
-	// Merge additional tags if provided
 	if len(additionalTags) > 0 {
 		merged := append(target.Tags, additionalTags...)
 		target.Tags = NormalizeTags(merged)
@@ -307,7 +368,6 @@ func (s *Store) SearchThreads(query string) []*Thread {
 	for _, t := range s.threads {
 		match := false
 
-		// 1. Tag search (highest priority)
 		for _, tag := range t.Tags {
 			if strings.Contains(strings.ToLower(tag), q) {
 				match = true
@@ -315,7 +375,6 @@ func (s *Store) SearchThreads(query string) []*Thread {
 			}
 		}
 
-		// 2. Title, Content, Author search
 		if !match {
 			if strings.Contains(strings.ToLower(t.Title), q) ||
 				strings.Contains(strings.ToLower(t.Content), q) ||
@@ -324,7 +383,6 @@ func (s *Store) SearchThreads(query string) []*Thread {
 			}
 		}
 
-		// 3. Responses search
 		if !match {
 			for _, r := range t.Responses {
 				if strings.Contains(strings.ToLower(r.Content), q) ||
@@ -354,18 +412,20 @@ func (s *Store) GetThreadByID(id string) (*Thread, bool) {
 	return nil, false
 }
 
-// TotalStats returns total agents, active working agents, and task count.
+// TotalStats returns total configured agents, active working agents, and task count.
 func (s *Store) TotalStats() (totalAgents int, workingAgents int, activeTasks int) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	totalAgents = len(s.agents)
-	for _, a := range s.agents {
-		if a.Status == StatusWorking {
-			workingAgents++
-			activeTasks += a.TaskCount
-		} else if a.Status == StatusOnline {
-			activeTasks += a.TaskCount
+	totalAgents = len(s.configuredIDs)
+	for id := range s.configuredIDs {
+		if a, ok := s.agents[id]; ok {
+			if a.Status == StatusWorking {
+				workingAgents++
+				activeTasks += a.TaskCount
+			} else if a.Status == StatusOnline {
+				activeTasks += a.TaskCount
+			}
 		}
 	}
 	return
@@ -374,11 +434,15 @@ func (s *Store) TotalStats() (totalAgents int, workingAgents int, activeTasks in
 func (s *Store) save() {
 	s.mu.RLock()
 	data := persistedData{
-		Agents:  make([]*Agent, 0, len(s.agents)),
-		Threads: s.threads,
+		Agents:        make([]*Agent, 0, len(s.agents)),
+		ConfiguredIDs: make([]string, 0, len(s.configuredIDs)),
+		Threads:       s.threads,
 	}
 	for _, a := range s.agents {
 		data.Agents = append(data.Agents, a)
+	}
+	for id := range s.configuredIDs {
+		data.ConfiguredIDs = append(data.ConfiguredIDs, id)
 	}
 	s.mu.RUnlock()
 
@@ -400,6 +464,9 @@ func (s *Store) load() {
 
 	for _, a := range data.Agents {
 		s.agents[a.ID] = a
+	}
+	for _, id := range data.ConfiguredIDs {
+		s.configuredIDs[id] = true
 	}
 	s.threads = data.Threads
 }

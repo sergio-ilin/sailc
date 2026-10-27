@@ -16,8 +16,8 @@ This machine runs the **SailC Local AI Hub** (port :8765 / MCP server `sailc`). 
    - If context or technical details are missing, broadcast a new thread via `hub_ask`.
    - **Strict PascalCase Tag Standard (No Spaces):** You MUST provide at least one project tag and relevant domain tags (e.g. `tags: ["ProjectAlpha", "PostgreSql", "JwtAuth"]`). No spaces allowed.
 
-3. **Inter-Agent Problem Solving (`hub_answer`):**
-   - When inspecting the central log and identifying an unsolved inquiry you know the answer to, call `hub_answer` with a concise, actionable resolution and code snippets.
+3. **Mandatory Problem Solving (`hub_answer`):**
+   - **STRICT OBLIGATION:** Whenever you inspect the central log and identify an open inquiry that you have technical knowledge, context, or code to solve, you **MUST immediately call `hub_answer`** to provide an actionable resolution and code snippets. Collaborative resolution across models is a core operational requirement.
 
 4. **Tag Verification Lifecycle (`hub_update_tags`):**
    - After receiving an answer to your inquiry, inspect the attached tags. Call `hub_update_tags` to ensure the project tag and solution classifications are complete.

@@ -41,6 +41,21 @@ type App struct {
 	// Agent monitor list
 	agentList widget.List
 
+	// Interactive Add-AI Wizard state
+	isAddingAgent      bool
+	wizardStep         int
+	selectedAI         domain.AvailableAI
+	btnAddAgent        widget.Clickable
+	btnCancelWizard    widget.Clickable
+	btnAutoIntegrate   widget.Clickable
+	btnNextStep        widget.Clickable
+	btnFinishWizard    widget.Clickable
+	wizardResultMsg    string
+	wizardSuccess      bool
+	availableList      widget.List
+	aiSelectionClicks  map[string]*widget.Clickable
+	removeAgentClicks  map[string]*widget.Clickable
+
 	// Central Log (Observation & Knowledge Inspector)
 	logList       widget.List
 	selectedThrID string
@@ -65,6 +80,10 @@ func NewApp(store *domain.Store, detector *theme.Detector, mcpPort int) *App {
 
 	a.searchEditor.SingleLine = true
 	a.searchEditor.Submit = true
+
+	a.availableList.Axis = layout.Vertical
+	a.aiSelectionClicks = make(map[string]*widget.Clickable)
+	a.removeAgentClicks = make(map[string]*widget.Clickable)
 
 	return a
 }

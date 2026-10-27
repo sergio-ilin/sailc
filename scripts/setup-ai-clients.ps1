@@ -24,30 +24,32 @@ $ClaudeDir = Join-Path $env:APPDATA "Claude"
 $ClaudeConfig = Join-Path $ClaudeDir "claude_desktop_config.json"
 
 Write-Host "`n[1] Checking Claude Desktop..." -ForegroundColor Yellow
-if (Test-Path $ClaudeDir) {
-    $configObj = @{ mcpServers = @{} }
-    if (Test-Path $ClaudeConfig) {
-        try {
-            $configObj = Get-Content $ClaudeConfig -Raw | ConvertFrom-Json
-            if (-not $configObj.mcpServers) {
-                $configObj | Add-Member -MemberType NoteProperty -Name "mcpServers" -Value @{}
-            }
-        } catch {}
-    } else {
-        New-Item -ItemType Directory -Path $ClaudeDir -Force | Out-Null
+New-Item -ItemType Directory -Path $ClaudeDir -Force | Out-Null
+
+$configObj = @{
+    mcpServers = @{
+        sailc = @{
+            command = $SailcExe
+            args = @("-mcp-stdio")
+        }
     }
-
-    $configObj.mcpServers | Add-Member -MemberType NoteProperty -Name "sailc" -Value @{
-        command = $SailcExe
-        args = @("-mcp-stdio")
-    } -Force
-
-    $jsonStr = $configObj | ConvertTo-Json -Depth 5
-    [System.IO.File]::WriteAllText($ClaudeConfig, $jsonStr, [System.Text.Encoding]::UTF8)
-    Write-Host "[+] Configured Claude Desktop successfully: $ClaudeConfig" -ForegroundColor Green
-} else {
-    Write-Host "[-] Claude Desktop folder not found ($ClaudeDir). Skipping." -ForegroundColor Gray
 }
+if (Test-Path $ClaudeConfig) {
+    try {
+        $existing = Get-Content $ClaudeConfig -Raw | ConvertFrom-Json
+        if ($existing.mcpServers) {
+            foreach ($prop in $existing.mcpServers.PSObject.Properties) {
+                if ($prop.Name -ne "sailc") {
+                    $configObj.mcpServers[$prop.Name] = $prop.Value
+                }
+            }
+        }
+    } catch {}
+}
+
+$jsonStr = $configObj | ConvertTo-Json -Depth 5
+[System.IO.File]::WriteAllText($ClaudeConfig, $jsonStr, [System.Text.Encoding]::UTF8)
+Write-Host "[+] Configured Claude Desktop successfully: $ClaudeConfig" -ForegroundColor Green
 
 # -------------------------------------------------------------
 # 2. Antigravity MCP Integration
