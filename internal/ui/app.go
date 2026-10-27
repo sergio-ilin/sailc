@@ -63,7 +63,7 @@ type App struct {
 
 // NewApp initializes the UI controller.
 func NewApp(store *domain.Store, detector *theme.Detector, mcpPort int) *App {
-	th := material.NewTheme()
+	th := createThemeWithSystemFont()
 	a := &App{
 		store:    store,
 		detector: detector,
