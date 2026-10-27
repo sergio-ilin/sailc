@@ -16,47 +16,46 @@ import (
 	"github.com/sergio-ilin/sailc/internal/theme"
 )
 
-type activeTab int
+type tabID int
 
 const (
-	tabAI activeTab = iota
+	tabAI tabID = iota
 	tabLog
 )
 
-// App manages the SailC native desktop user interface.
+// App manages the Gio application lifecycle, state, and rendering loop.
 type App struct {
+	window   *app.Window
 	store    *domain.Store
 	detector *theme.Detector
 	theme    *material.Theme
-	window   *app.Window
 	mcpPort  int
 
-	currentTab activeTab
+	// Navigation & View state
+	currentTab tabID
 	btnAI      widget.Clickable
 	btnLog     widget.Clickable
 
-	// AI list
-	agentList widget.List
-
-	// Interactive Add-AI state
-	isAddingAI        bool
+	// AI View widgets
 	btnAddAI          widget.Clickable
 	btnCloseAdd       widget.Clickable
+	agentList         widget.List
 	availableList     widget.List
 	aiSelectionClicks map[string]*widget.Clickable
 	removeAIClicks    map[string]*widget.Clickable
+	isAddingAI        bool
 
-	// Central Log (Observation & Knowledge Inspector)
-	logList       widget.List
-	selectedThrID string
+	// Log View widgets
 	searchEditor  widget.Editor
-
-	detailList widget.List
+	logList       widget.List
+	detailList    widget.List
+	selectedThrID string
 }
 
-// NewApp initializes the UI controller.
+// NewApp initializes the SailC desktop interface.
 func NewApp(store *domain.Store, detector *theme.Detector, mcpPort int) *App {
 	th := createThemeWithSystemFont()
+
 	a := &App{
 		store:    store,
 		detector: detector,
@@ -64,9 +63,10 @@ func NewApp(store *domain.Store, detector *theme.Detector, mcpPort int) *App {
 		mcpPort:  mcpPort,
 	}
 
-	a.agentList.Axis = layout.Vertical
-	a.logList.Axis = layout.Vertical
-	a.detailList.Axis = layout.Vertical
+	a.agentList.List.Axis = layout.Vertical
+	a.logList.List.Axis = layout.Vertical
+	a.detailList.List.Axis = layout.Vertical
+	a.availableList.List.Axis = layout.Vertical
 
 	a.searchEditor.SingleLine = true
 	a.searchEditor.Submit = true
@@ -76,6 +76,12 @@ func NewApp(store *domain.Store, detector *theme.Detector, mcpPort int) *App {
 	a.removeAIClicks = make(map[string]*widget.Clickable)
 
 	return a
+}
+
+// Run executes the native window event loop.
+func Run(store *domain.Store, detector *theme.Detector, mcpPort int) error {
+	a := NewApp(store, detector, mcpPort)
+	return a.Run()
 }
 
 // Run executes the native window event loop.
@@ -132,11 +138,11 @@ func (a *App) layout(gtx layout.Context) layout.Dimensions {
 	return layout.Flex{
 		Axis: layout.Vertical,
 	}.Layout(gtx,
-		// Minimal Header bar
+		// Header bar with vector logo and unified FontAwesome tab items
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return a.layoutHeader(gtx, pal)
 		}),
-		// Content area
+		// Content area with breathing margins
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{
 				Top:    unit.Dp(brand.PaddingNormal),
@@ -160,8 +166,8 @@ func (a *App) layout(gtx layout.Context) layout.Dimensions {
 func (a *App) layoutHeader(gtx layout.Context, pal brand.Palette) layout.Dimensions {
 	macro := op.Record(gtx.Ops)
 	dims := layout.Inset{
-		Top:    unit.Dp(12),
-		Bottom: unit.Dp(12),
+		Top:    unit.Dp(10),
+		Bottom: unit.Dp(10),
 		Left:   unit.Dp(brand.PaddingMedium),
 		Right:  unit.Dp(brand.PaddingMedium),
 	}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -169,20 +175,20 @@ func (a *App) layoutHeader(gtx layout.Context, pal brand.Palette) layout.Dimensi
 			Axis:      layout.Horizontal,
 			Alignment: layout.Middle,
 		}.Layout(gtx,
-			// Clean SailC Vector Logo Only
+			// Minimalist SailC Geometric Vector Logo
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return DrawSailLogo(gtx, unit.Dp(26), pal.Accent)
 			}),
-			layout.Rigid(layout.Spacer{Width: unit.Dp(20)}.Layout),
-			// Minimal Nav tabs: "AI" and "Log"
+			layout.Rigid(layout.Spacer{Width: unit.Dp(24)}.Layout),
+			// Nav tabs: "AI" and "Log" with FontAwesome icons
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return a.layoutTabButton(gtx, &a.btnAI, "AI", a.currentTab == tabAI, pal)
+						return a.layoutTabButton(gtx, &a.btnAI, IconMicrochip, "AI", a.currentTab == tabAI, pal)
 					}),
 					layout.Rigid(layout.Spacer{Width: unit.Dp(6)}.Layout),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return a.layoutTabButton(gtx, &a.btnLog, "Log", a.currentTab == tabLog, pal)
+						return a.layoutTabButton(gtx, &a.btnLog, IconComments, "Log", a.currentTab == tabLog, pal)
 					}),
 				)
 			}),
@@ -196,7 +202,7 @@ func (a *App) layoutHeader(gtx layout.Context, pal brand.Palette) layout.Dimensi
 	return dims
 }
 
-func (a *App) layoutTabButton(gtx layout.Context, btn *widget.Clickable, title string, active bool, pal brand.Palette) layout.Dimensions {
+func (a *App) layoutTabButton(gtx layout.Context, btn *widget.Clickable, iconCode string, title string, active bool, pal brand.Palette) layout.Dimensions {
 	bg := pal.Surface
 	textColor := pal.TextSecondary
 	if active {
@@ -211,15 +217,23 @@ func (a *App) layoutTabButton(gtx layout.Context, btn *widget.Clickable, title s
 		dims := layout.Inset{
 			Top:    unit.Dp(6),
 			Bottom: unit.Dp(6),
-			Left:   unit.Dp(16),
-			Right:  unit.Dp(16),
+			Left:   unit.Dp(14),
+			Right:  unit.Dp(14),
 		}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			lbl := material.Label(a.theme, unit.Sp(13), title)
-			lbl.Color = textColor
-			if active {
-				lbl.Font.Weight = 600
-			}
-			return lbl.Layout(gtx)
+			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return DrawFAIcon(a.theme, gtx, iconCode, unit.Sp(12), textColor)
+				}),
+				layout.Rigid(layout.Spacer{Width: unit.Dp(8)}.Layout),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					lbl := material.Label(a.theme, unit.Sp(13), title)
+					lbl.Color = textColor
+					if active {
+						lbl.Font.Weight = 600
+					}
+					return lbl.Layout(gtx)
+				}),
+			)
 		})
 		call := macro.Stop()
 

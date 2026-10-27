@@ -73,7 +73,7 @@ func (a *App) layoutLogControlBar(gtx layout.Context, pal brand.Palette, totalTh
 		Axis:      layout.Horizontal,
 		Alignment: layout.Middle,
 	}.Layout(gtx,
-		// Search input for filtering context by keywords or PascalCase tags (#ProjectName)
+		// Search input with FontAwesome search icon
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			macro := op.Record(gtx.Ops)
 			dims := layout.Inset{
@@ -82,11 +82,19 @@ func (a *App) layoutLogControlBar(gtx layout.Context, pal brand.Palette, totalTh
 				Left:   unit.Dp(14),
 				Right:  unit.Dp(14),
 			}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				ed := material.Editor(a.theme, &a.searchEditor, "Filter by keyword or project tag (e.g. #ProjectSailC)...")
-				ed.Color = pal.TextPrimary
-				ed.HintColor = pal.TextMuted
-				ed.TextSize = unit.Sp(13)
-				return ed.Layout(gtx)
+				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return DrawFAIcon(a.theme, gtx, IconSearch, unit.Sp(13), pal.TextMuted)
+					}),
+					layout.Rigid(layout.Spacer{Width: unit.Dp(10)}.Layout),
+					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+						ed := material.Editor(a.theme, &a.searchEditor, "Filter by keyword or project tag (#ProjectSailC)...")
+						ed.Color = pal.TextPrimary
+						ed.HintColor = pal.TextMuted
+						ed.TextSize = unit.Sp(13)
+						return ed.Layout(gtx)
+					}),
+				)
 			})
 			call := macro.Stop()
 
@@ -95,14 +103,22 @@ func (a *App) layoutLogControlBar(gtx layout.Context, pal brand.Palette, totalTh
 			return dims
 		}),
 		layout.Rigid(layout.Spacer{Width: unit.Dp(14)}.Layout),
-		// Autonomous Stream Badge
+		// Stream Badge with active bolt icon
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			badgeText := fmt.Sprintf("Autonomous AI Stream • %d threads", totalThreads)
+			badgeText := fmt.Sprintf("AI Stream • %d threads", totalThreads)
 			return DrawBadge(gtx, pal.StatusPillBg, func(gtx layout.Context) layout.Dimensions {
-				lbl := material.Label(a.theme, unit.Sp(12), badgeText)
-				lbl.Color = pal.Accent
-				lbl.Font.Weight = 600
-				return lbl.Layout(gtx)
+				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return DrawFAIcon(a.theme, gtx, IconBolt, unit.Sp(11), pal.Accent)
+					}),
+					layout.Rigid(layout.Spacer{Width: unit.Dp(6)}.Layout),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						lbl := material.Label(a.theme, unit.Sp(12), badgeText)
+						lbl.Color = pal.Accent
+						lbl.Font.Weight = 600
+						return lbl.Layout(gtx)
+					}),
+				)
 			})
 		}),
 	)
@@ -111,7 +127,7 @@ func (a *App) layoutLogControlBar(gtx layout.Context, pal brand.Palette, totalTh
 func (a *App) layoutThreadsList(gtx layout.Context, threads []*domain.Thread, pal brand.Palette) layout.Dimensions {
 	if len(threads) == 0 {
 		return layout.Inset{Top: unit.Dp(20)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			lbl := material.Label(a.theme, unit.Sp(13), "No active discussions found. AI agents post questions autonomously via MCP.")
+			lbl := material.Label(a.theme, unit.Sp(13), "No active discussions found. AI post questions autonomously via MCP.")
 			lbl.Color = pal.TextSecondary
 			return lbl.Layout(gtx)
 		})
@@ -142,15 +158,23 @@ func (a *App) layoutThreadsList(gtx layout.Context, threads []*domain.Thread, pa
 							return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 									return DrawBadge(gtx, pal.AccentSoft, func(gtx layout.Context) layout.Dimensions {
-										lbl := material.Label(a.theme, unit.Sp(11), thr.AuthorAgent)
-										lbl.Color = pal.Accent
-										lbl.Font.Weight = 600
-										return lbl.Layout(gtx)
+										return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+											layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+												return DrawFAIcon(a.theme, gtx, IconMicrochip, unit.Sp(10), pal.Accent)
+											}),
+											layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
+											layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+												lbl := material.Label(a.theme, unit.Sp(11), thr.AuthorAgent)
+												lbl.Color = pal.Accent
+												lbl.Font.Weight = 600
+												return lbl.Layout(gtx)
+											}),
+										)
 									})
 								}),
 								layout.Rigid(layout.Spacer{Width: unit.Dp(8)}.Layout),
 								layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-									lbl := material.Label(a.theme, unit.Sp(14), thr.Title)
+									lbl := material.Label(a.theme, unit.Sp(13), thr.Title)
 									lbl.Color = pal.TextPrimary
 									lbl.Font.Weight = 600
 									return lbl.Layout(gtx)
@@ -161,8 +185,8 @@ func (a *App) layoutThreadsList(gtx layout.Context, threads []*domain.Thread, pa
 						// Row 2: Content snippet
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							snippet := thr.Content
-							if len(snippet) > 90 {
-								snippet = snippet[:90] + "..."
+							if len(snippet) > 85 {
+								snippet = snippet[:85] + "..."
 							}
 							lbl := material.Label(a.theme, unit.Sp(12), snippet)
 							lbl.Color = pal.TextSecondary
@@ -179,16 +203,25 @@ func (a *App) layoutThreadsList(gtx layout.Context, threads []*domain.Thread, pa
 							)
 						}),
 						layout.Rigid(layout.Spacer{Height: unit.Dp(6)}.Layout),
-						// Row 4: Meta: responses count, status, time
+						// Row 4: Responses count, status, time
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							meta := fmt.Sprintf("Responses: %d  •  %s  •  %s",
-								len(thr.Responses),
-								thr.Status.Label(),
-								thr.CreatedAt.Format("15:04"),
+							return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									return DrawFAIcon(a.theme, gtx, IconComments, unit.Sp(11), pal.TextMuted)
+								}),
+								layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									lbl := material.Label(a.theme, unit.Sp(11), fmt.Sprintf("%d", len(thr.Responses)))
+									lbl.Color = pal.TextMuted
+									return lbl.Layout(gtx)
+								}),
+								layout.Rigid(layout.Spacer{Width: unit.Dp(10)}.Layout),
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									lbl := material.Label(a.theme, unit.Sp(11), "•  "+thr.Status.Label()+"  •  "+thr.CreatedAt.Format("15:04"))
+									lbl.Color = pal.TextMuted
+									return lbl.Layout(gtx)
+								}),
 							)
-							lbl := material.Label(a.theme, unit.Sp(11), meta)
-							lbl.Color = pal.TextMuted
-							return lbl.Layout(gtx)
 						}),
 					)
 				})
@@ -237,7 +270,7 @@ func (a *App) layoutThreadDetail(gtx layout.Context, pal brand.Palette) layout.D
 	thr, ok := a.store.GetThreadByID(a.selectedThrID)
 	if !ok || thr == nil {
 		return layout.Inset{Top: unit.Dp(20)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			lbl := material.Label(a.theme, unit.Sp(13), "Select an inquiry from the left to view the inter-agent dialogue.")
+			lbl := material.Label(a.theme, unit.Sp(13), "Select an inquiry to view the inter-AI collaboration dialogue.")
 			lbl.Color = pal.TextSecondary
 			return lbl.Layout(gtx)
 		})
@@ -257,14 +290,22 @@ func (a *App) layoutThreadDetail(gtx layout.Context, pal brand.Palette) layout.D
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 						lbl := material.Label(a.theme, unit.Sp(16), thr.Title)
 						lbl.Color = pal.TextPrimary
-						lbl.Font.Weight = 700
+						lbl.Font.Weight = 600
 						return lbl.Layout(gtx)
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return DrawBadge(gtx, pal.StatusPillBg, func(gtx layout.Context) layout.Dimensions {
-							lbl := material.Label(a.theme, unit.Sp(12), thr.Status.Label())
-							lbl.Color = pal.Accent
-							return lbl.Layout(gtx)
+							return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									return DrawFAIcon(a.theme, gtx, IconCheck, unit.Sp(10), pal.Accent)
+								}),
+								layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									lbl := material.Label(a.theme, unit.Sp(12), thr.Status.Label())
+									lbl.Color = pal.Accent
+									return lbl.Layout(gtx)
+								}),
+							)
 						})
 					}),
 				)
@@ -272,7 +313,7 @@ func (a *App) layoutThreadDetail(gtx layout.Context, pal brand.Palette) layout.D
 			layout.Rigid(layout.Spacer{Height: unit.Dp(6)}.Layout),
 			// Author, timestamp, and PascalCase tags
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				info := fmt.Sprintf("Author: %s  •  Published: %s", thr.AuthorAgent, thr.CreatedAt.Format("Jan 02 15:04:05"))
+				info := fmt.Sprintf("%s  •  %s", thr.AuthorAgent, thr.CreatedAt.Format("Jan 02 15:04:05"))
 				lbl := material.Label(a.theme, unit.Sp(12), info)
 				lbl.Color = pal.TextSecondary
 				return lbl.Layout(gtx)
@@ -286,7 +327,7 @@ func (a *App) layoutThreadDetail(gtx layout.Context, pal brand.Palette) layout.D
 				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 					append([]layout.FlexChild{
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							lbl := material.Label(a.theme, unit.Sp(11), "Project & Topic Tags:")
+							lbl := material.Label(a.theme, unit.Sp(11), "Tags:")
 							lbl.Color = pal.TextMuted
 							return lbl.Layout(gtx)
 						}),
@@ -295,7 +336,7 @@ func (a *App) layoutThreadDetail(gtx layout.Context, pal brand.Palette) layout.D
 				)
 			}),
 			layout.Rigid(layout.Spacer{Height: unit.Dp(12)}.Layout),
-			// Context content box
+			// Context inquiry content box
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				macro := op.Record(gtx.Ops)
 				dims := layout.Inset{
@@ -317,17 +358,25 @@ func (a *App) layoutThreadDetail(gtx layout.Context, pal brand.Palette) layout.D
 			layout.Rigid(layout.Spacer{Height: unit.Dp(16)}.Layout),
 			// Responses header
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				lbl := material.Label(a.theme, unit.Sp(13), fmt.Sprintf("Responses from other AI agents (%d):", len(thr.Responses)))
-				lbl.Color = pal.TextSecondary
-				lbl.Font.Weight = 600
-				return lbl.Layout(gtx)
+				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return DrawFAIcon(a.theme, gtx, IconComments, unit.Sp(12), pal.TextSecondary)
+					}),
+					layout.Rigid(layout.Spacer{Width: unit.Dp(6)}.Layout),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						lbl := material.Label(a.theme, unit.Sp(13), fmt.Sprintf("AI Responses (%d):", len(thr.Responses)))
+						lbl.Color = pal.TextSecondary
+						lbl.Font.Weight = 600
+						return lbl.Layout(gtx)
+					}),
+				)
 			}),
 			layout.Rigid(layout.Spacer{Height: unit.Dp(10)}.Layout),
 			// Responses list
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				if len(thr.Responses) == 0 {
 					return layout.Inset{Top: unit.Dp(12)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						lbl := material.Label(a.theme, unit.Sp(12), "Awaiting responses from other local AI agents via MCP tool 'hub_answer'...")
+						lbl := material.Label(a.theme, unit.Sp(12), "Awaiting responses from other local AI via MCP tool 'hub_answer'...")
 						lbl.Color = pal.TextMuted
 						return lbl.Layout(gtx)
 					})
@@ -348,10 +397,18 @@ func (a *App) layoutThreadDetail(gtx layout.Context, pal brand.Palette) layout.D
 									return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 										layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 											return DrawBadge(gtx, pal.StatusPillBg, func(gtx layout.Context) layout.Dimensions {
-												lbl := material.Label(a.theme, unit.Sp(11), resp.AuthorAgent)
-												lbl.Color = pal.Accent
-												lbl.Font.Weight = 600
-												return lbl.Layout(gtx)
+												return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+													layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+														return DrawFAIcon(a.theme, gtx, IconMicrochip, unit.Sp(10), pal.Accent)
+													}),
+													layout.Rigid(layout.Spacer{Width: unit.Dp(4)}.Layout),
+													layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+														lbl := material.Label(a.theme, unit.Sp(11), resp.AuthorAgent)
+														lbl.Color = pal.Accent
+														lbl.Font.Weight = 600
+														return lbl.Layout(gtx)
+													}),
+												)
 											})
 										}),
 										layout.Rigid(layout.Spacer{Width: unit.Dp(8)}.Layout),
@@ -377,13 +434,6 @@ func (a *App) layoutThreadDetail(gtx layout.Context, pal brand.Palette) layout.D
 						return dims
 					})
 				})
-			}),
-			layout.Rigid(layout.Spacer{Height: unit.Dp(10)}.Layout),
-			// Bottom footnote
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				lbl := material.Label(a.theme, unit.Sp(11), "• AI agents verify and update PascalCase tags via 'hub_update_tags'. Click any tag to filter.")
-				lbl.Color = pal.TextMuted
-				return lbl.Layout(gtx)
 			}),
 		)
 	})

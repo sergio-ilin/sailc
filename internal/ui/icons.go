@@ -10,25 +10,32 @@ import (
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/unit"
+	"gioui.org/widget/material"
 )
 
-// DrawSailLogo рисует фирменный векторный логотип SailC (стилизованный геометрический парус).
+// DrawFAIcon renders a unified FontAwesome solid icon.
+func DrawFAIcon(th *material.Theme, gtx layout.Context, iconCode string, size unit.Sp, col color.NRGBA) layout.Dimensions {
+	lbl := material.Label(th, size, iconCode)
+	lbl.Font.Typeface = FontFamilyFontAwesome
+	lbl.Color = col
+	return lbl.Layout(gtx)
+}
+
+// DrawSailLogo draws the geometric two-sail beacon mark.
 func DrawSailLogo(gtx layout.Context, size unit.Dp, col color.NRGBA) layout.Dimensions {
 	px := gtx.Dp(size)
 	s := float32(px)
 
-	// Координаты для двух парусов
-	// Главный парус (треугольник)
+	// Main Sail
 	var p1 clip.Path
 	p1.Begin(gtx.Ops)
 	p1.MoveTo(f32.Pt(s*0.2, s*0.9))
 	p1.LineTo(f32.Pt(s*0.5, s*0.1))
 	p1.LineTo(f32.Pt(s*0.5, s*0.85))
 	p1.Close()
-
 	paint.FillShape(gtx.Ops, col, clip.Outline{Path: p1.End()}.Op())
 
-	// Малый парус (правое перо)
+	// Jib Sail
 	var p2 clip.Path
 	p2.Begin(gtx.Ops)
 	p2.MoveTo(f32.Pt(s*0.58, s*0.85))
@@ -36,12 +43,11 @@ func DrawSailLogo(gtx layout.Context, size unit.Dp, col color.NRGBA) layout.Dime
 	p2.LineTo(f32.Pt(s*0.85, s*0.85))
 	p2.Close()
 
-	// Слегка прозрачнее для глубины
 	col2 := col
 	col2.A = uint8(float32(col.A) * 0.75)
 	paint.FillShape(gtx.Ops, col2, clip.Outline{Path: p2.End()}.Op())
 
-	// Корпус / основание
+	// Hull
 	var p3 clip.Path
 	p3.Begin(gtx.Ops)
 	p3.MoveTo(f32.Pt(s*0.15, s*0.92))
@@ -49,13 +55,12 @@ func DrawSailLogo(gtx layout.Context, size unit.Dp, col color.NRGBA) layout.Dime
 	p3.LineTo(f32.Pt(s*0.75, s*0.98))
 	p3.LineTo(f32.Pt(s*0.25, s*0.98))
 	p3.Close()
-
 	paint.FillShape(gtx.Ops, col, clip.Outline{Path: p3.End()}.Op())
 
 	return layout.Dimensions{Size: image.Pt(px, px)}
 }
 
-// DrawStatusDot рисует аккуратный круглый индикатор статуса
+// DrawStatusDot renders a clean status indicator circle.
 func DrawStatusDot(gtx layout.Context, radius unit.Dp, col color.NRGBA) layout.Dimensions {
 	r := gtx.Dp(radius)
 	d := r * 2
@@ -65,7 +70,7 @@ func DrawStatusDot(gtx layout.Context, radius unit.Dp, col color.NRGBA) layout.D
 	return layout.Dimensions{Size: image.Pt(d, d)}
 }
 
-// DrawBadge рисует скругленный блок без рамок для тегов и статусов
+// DrawBadge renders a rounded flat tag / pill.
 func DrawBadge(gtx layout.Context, bg color.NRGBA, content layout.Widget) layout.Dimensions {
 	macro := op.Record(gtx.Ops)
 	dims := layout.Inset{
@@ -77,7 +82,7 @@ func DrawBadge(gtx layout.Context, bg color.NRGBA, content layout.Widget) layout
 	call := macro.Stop()
 
 	rect := image.Rect(0, 0, dims.Size.X, dims.Size.Y)
-	paint.FillShape(gtx.Ops, bg, clip.UniformRRect(rect, gtx.Dp(unit.Dp(4))).Op(gtx.Ops))
+	paint.FillShape(gtx.Ops, bg, clip.UniformRRect(rect, gtx.Dp(unit.Dp(5))).Op(gtx.Ops))
 	call.Add(gtx.Ops)
 	return dims
 }
