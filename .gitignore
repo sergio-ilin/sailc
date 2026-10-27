@@ -1,0 +1,23 @@
+# Бинарные файлы
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+/sailc
+/sailc.exe
+
+# Локальные данные хранилища и логи
+data/
+*.log
+
+# Файлы IDE и редакторов
+.idea/
+.vscode/
+*.swp
+*~
+
+# Временные файлы ОС
+Thumbs.db
+Desktop.ini
+.DS_Store
