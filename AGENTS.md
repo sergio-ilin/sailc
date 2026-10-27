@@ -39,28 +39,47 @@ This document contains core directives, styling requirements, and technical conv
 ### Color Palette
 
 #### Dark Theme (System Default):
-- **Window Background (Canvas):** `#0E1117` (Deep neutral dark)
-- **Card / Surface Background (Surface):** `#161B26` (Muted graphite with blue undertone)
-- **Active / Hover State (Surface Hover):** `#1F2636`
-- **Primary Text:** `#E6EDF3` (Soft high-contrast white)
-- **Secondary Text / Subtitles:** `#8B949E` (Neutral slate gray)
-- **Muted Text:** `#565D68`
-- **Brand Accent:** `#3B82F6` (Vivid Azure)
+- **Window Background (Canvas):** `#0A0D12` (Obsidian dark slate)
+- **Card / Surface Background (Surface):** `#131720` (Matte carbon graphite)
+- **Active / Hover State (Surface Hover):** `#1C2333`
+- **Primary Text:** `#F8FAFC` (Crisp high-contrast white)
+- **Secondary Text / Subtitles:** `#94A3B8` (Slate gray)
+- **Muted Text:** `#475569`
+- **Brand Accent:** `#06B6D4` (Electric Cyan)
 - **Working Status:** `#F59E0B` (Warm Amber)
 - **Online / Ready Status:** `#10B981` (Emerald Green)
-- **Offline Status:** `#6B7280` (Cool Gray)
+- **Offline Status:** `#64748B` (Cool Gray)
 
 #### Light Theme:
-- **Window Background (Canvas):** `#F8FAFC` (Clean pearl slate)
+- **Window Background (Canvas):** `#F4F6F9` (Clean pearl slate)
 - **Card / Surface Background (Surface):** `#FFFFFF` (Pure white)
-- **Active / Hover State (Surface Hover):** `#EDF2F7`
-- **Primary Text:** `#0F172A` (Deep slate)
-- **Secondary Text / Subtitles:** `#64748B` (Medium graphite)
-- **Muted Text:** `#94A3B8`
-- **Brand Accent:** `#2563EB` (Ultramarine Blue)
+- **Active / Hover State (Surface Hover):** `#EAEFF5`
+- **Primary Text:** `#0B0F19` (Deep obsidian slate)
+- **Secondary Text / Subtitles:** `#526071` (Medium graphite)
+- **Muted Text:** `#8C9BAE`
+- **Brand Accent:** `#0284C7` (Electric Ocean Blue)
 - **Working Status:** `#D97706`
 - **Online / Ready Status:** `#059669`
 - **Offline Status:** `#94A3B8`
+
+---
+
+## 3. Dual-Process Architecture (24/7 AI Availability & Zero Console Popups)
+
+1. **Persistent Headless Daemon (`sailcd.exe`):**
+   - Compiled with `-ldflags "-H=windowsgui -s -w"` so Windows never allocates a console window.
+   - Runs persistently in the background (< 10 MB RAM footprint).
+   - Serves the MCP JSON-RPC protocol on port `8765` (`/mcp`) and REST endpoints (`/api/threads`, `/api/agents`).
+   - Runs the AI process & inference port scanner.
+   - AI models retain continuous, uninterrupted 24/7 connectivity.
+   - Can autostart on Windows logon via `scripts/setup-service.ps1 -Action install` or `sailcd.exe -install-startup`.
+
+2. **Native GUI Observer (`sailc.exe`):**
+   - Compiled with `-ldflags "-H=windowsgui -s -w"` to guarantee **zero console window** popups.
+   - On startup, checks if `sailcd.exe` is already listening. If not, automatically spawns it detached in the background (`CREATE_NO_WINDOW | DETACHED_PROCESS`).
+   - Synchronizes state with `%APPDATA%\SailC\hub_data.json` via continuous file change detection.
+   - Allows human operator to inspect active AI and conversation threads whenever desired.
+   - Closing the GUI window does NOT terminate the background MCP server — AI access remains uninterrupted.
 
 ---
 

@@ -8,45 +8,61 @@ import (
 	"time"
 
 	"gioui.org/app"
+	"github.com/sergio-ilin/sailc/internal/daemon"
 	"github.com/sergio-ilin/sailc/internal/domain"
 	"github.com/sergio-ilin/sailc/internal/mcp"
-	"github.com/sergio-ilin/sailc/internal/monitor"
 	"github.com/sergio-ilin/sailc/internal/theme"
 	"github.com/sergio-ilin/sailc/internal/ui"
 )
 
 func main() {
 	portFlag := flag.Int("port", 8765, "Port for the embedded MCP server")
-	stdioFlag := flag.Bool("mcp-stdio", false, "Run in stdio MCP server mode (headless without GUI window)")
+	stdioFlag := flag.Bool("mcp-stdio", false, "Run in stdio MCP server mode (headless without GUI)")
+	installStartup := flag.Bool("install-startup", false, "Register background daemon in Windows startup")
+	uninstallStartup := flag.Bool("uninstall-startup", false, "Remove background daemon from Windows startup")
 	flag.Parse()
 
-	// 1. Initialize central thread-safe domain store
+	if *installStartup {
+		daemon.AttachParentConsole()
+		if err := daemon.InstallStartup(*portFlag); err != nil {
+			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println("[SailC] Background daemon registered in Windows startup.")
+		return
+	}
+
+	if *uninstallStartup {
+		daemon.AttachParentConsole()
+		if err := daemon.UninstallStartup(); err != nil {
+			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println("[SailC] Background daemon removed from Windows startup.")
+		return
+	}
+
+	// 1. Initialize central domain store
 	store := domain.NewStore()
 
-	// 2. Initialize Model Context Protocol server
-	mcpServer := mcp.NewServer(store, *portFlag)
-
+	// Mode A: STDIO mode (direct pipe to IDEs)
 	if *stdioFlag {
+		mcpServer := mcp.NewServer(store, *portFlag)
 		mcpServer.RunStdio()
 		return
 	}
 
-	// Start background HTTP transport for MCP
-	if err := mcpServer.StartHTTP(); err != nil {
-		log.Printf("Warning: Failed to start HTTP MCP server on port %d: %v", *portFlag, err)
-	} else {
-		fmt.Printf("[SailC] MCP server listening on http://127.0.0.1:%d/mcp\n", *portFlag)
-	}
+	// Mode B: Interactive GUI desktop window (strictly for observation)
+	// Automatically ensure background daemon (sailcd.exe) is running so AI models always have 24/7 access
+	_ = daemon.EnsureRunning(*portFlag)
 
-	// 3. Start background AI process & port scanner
-	scanner := monitor.NewScanner(store, 3*time.Second)
-	scanner.Start()
-	defer scanner.Stop()
+	// Watch for store changes made by background daemon or AI tools
+	store.StartWatcher(1 * time.Second)
 
-	// 4. Initialize Windows registry theme detector
+	// Windows registry system theme detector
 	themeDetector := theme.NewDetector()
 
-	// 5. Start fast native Gio desktop interface
+	// Launch native Gio interface
 	appUI := ui.NewApp(store, themeDetector, *portFlag)
 
 	go func() {

@@ -470,3 +470,31 @@ func (s *Store) load() {
 	}
 	s.threads = data.Threads
 }
+
+// StartWatcher starts a background poller that checks if hub_data.json was modified
+// on disk (e.g. by the background MCP daemon or other AI agents) and reloads it.
+func (s *Store) StartWatcher(interval time.Duration) {
+	go func() {
+		var lastMod time.Time
+		if fi, err := os.Stat(s.filePath); err == nil {
+			lastMod = fi.ModTime()
+		}
+
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+
+		for range ticker.C {
+			fi, err := os.Stat(s.filePath)
+			if err != nil {
+				continue
+			}
+			if fi.ModTime().After(lastMod) {
+				lastMod = fi.ModTime()
+				s.mu.Lock()
+				s.load()
+				s.mu.Unlock()
+				s.notify()
+			}
+		}
+	}()
+}
