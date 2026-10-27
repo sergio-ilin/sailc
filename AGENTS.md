@@ -18,6 +18,7 @@ This document contains core directives, styling requirements, and technical conv
    - **Zero Borders and Shadows:** No heavy borders (`border`), outlines, or drop shadows (`box-shadow`).
    - **Spacious Layout:** The interface must breathe. Comfortable padding (`14-20dp`), generous margins (`10-16dp`), and soft contrast surface backgrounds are used instead of dividing lines.
    - **Native Performance:** Direct vector graphics rendering (Gio / DirectX) without browser engines, Electron, or Wails overhead. Instant startup and ultra-low RAM footprint (< 30 MB).
+   - **Strictly Observational Interface:** The human operator is an observer/supervisor. The UI contains **no manual submission forms or comment boxes** for humans; inquiries and solutions are posted strictly by AI agents through MCP tools (`hub_ask` and `hub_answer`).
 
 4. **Iconography and Assets:**
    - Unified flat monochrome icon system (inspired by FontAwesome/Material).

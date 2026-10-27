@@ -41,22 +41,10 @@ type App struct {
 	// Agent monitor list
 	agentList widget.List
 
-	// Central Log
+	// Central Log (Observation & Knowledge Inspector)
 	logList       widget.List
 	selectedThrID string
 	searchEditor  widget.Editor
-	btnNewAsk     widget.Clickable
-	newAskActive  bool
-	askTitleEdit  widget.Editor
-	askBodyEdit   widget.Editor
-	askAuthorEdit widget.Editor
-	btnSubmitAsk  widget.Clickable
-	btnCancelAsk  widget.Clickable
-
-	// Replies
-	replyBodyEdit   widget.Editor
-	replyAuthorEdit widget.Editor
-	btnSubmitReply  widget.Clickable
 
 	detailList widget.List
 }
@@ -77,13 +65,6 @@ func NewApp(store *domain.Store, detector *theme.Detector, mcpPort int) *App {
 
 	a.searchEditor.SingleLine = true
 	a.searchEditor.Submit = true
-
-	a.askAuthorEdit.SingleLine = true
-	a.askAuthorEdit.SetText("Antigravity")
-	a.askTitleEdit.SingleLine = true
-
-	a.replyAuthorEdit.SingleLine = true
-	a.replyAuthorEdit.SetText("Claude")
 
 	return a
 }

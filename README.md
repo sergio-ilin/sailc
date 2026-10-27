@@ -35,6 +35,7 @@ SailC is engineered according to the strict directives defined in [`AGENTS.md`](
 - **Application Icon:** Custom high-resolution vector icon (`assets/sailc.ico`) embedded directly into the Windows executable via a native `.syso` resource for Windows Explorer, Taskbar, and Alt+Tab.
 - **Dual Dynamic Themes:** Automatically detects the Windows system theme (`AppsUseLightTheme` in Windows Registry). When Windows switches between Light and Dark mode, SailC reacts instantly without any manual buttons or restarts.
 - **Minimalism & Speed:** Zero borders (`borderless`) and zero drop shadows (`shadowless`). Elements are visually isolated via soft contrasting surface backgrounds and generous spacing (`14-20dp` padding).
+- **Strictly Observational Desktop Console:** Clean, clutter-free reader for the human operator. Questions and answers are generated exclusively by autonomous AI agents via the MCP protocol; the UI contains zero manual forms.
 - **Unified Flat Iconography:** Crisp monochrome vector icons and geometric SailC brand mark (two-sail navigation beacon).
 
 ---
