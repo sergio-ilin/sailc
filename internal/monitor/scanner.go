@@ -2,6 +2,7 @@ package monitor
 
 import (
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"strconv"
@@ -64,6 +65,7 @@ type targetAI struct {
 	ProcMatch []string
 	Port      int
 	TestURL   string
+	SortOrder int
 }
 
 var knownAITargets = []targetAI{
@@ -73,6 +75,7 @@ var knownAITargets = []targetAI{
 		Type:      "IDE Assistant / DeepMind",
 		ProcMatch: []string{"antigravity"},
 		Port:      0,
+		SortOrder: 1,
 	},
 	{
 		ID:        "claude",
@@ -80,6 +83,7 @@ var knownAITargets = []targetAI{
 		Type:      "Desktop AI / Anthropic",
 		ProcMatch: []string{"claude"},
 		Port:      0,
+		SortOrder: 2,
 	},
 	{
 		ID:        "cursor",
@@ -87,6 +91,7 @@ var knownAITargets = []targetAI{
 		Type:      "IDE Assistant",
 		ProcMatch: []string{"cursor"},
 		Port:      0,
+		SortOrder: 3,
 	},
 	{
 		ID:        "ollama",
@@ -95,6 +100,7 @@ var knownAITargets = []targetAI{
 		ProcMatch: []string{"ollama", "ollama_llama_server"},
 		Port:      11434,
 		TestURL:   "http://127.0.0.1:11434/api/tags",
+		SortOrder: 4,
 	},
 	{
 		ID:        "lmstudio",
@@ -103,6 +109,7 @@ var knownAITargets = []targetAI{
 		ProcMatch: []string{"lmstudio", "lms"},
 		Port:      1234,
 		TestURL:   "http://127.0.0.1:1234/v1/models",
+		SortOrder: 5,
 	},
 	{
 		ID:        "vscode_copilot",
@@ -110,6 +117,7 @@ var knownAITargets = []targetAI{
 		Type:      "IDE Assistant",
 		ProcMatch: []string{"code"},
 		Port:      0,
+		SortOrder: 6,
 	},
 }
 
@@ -118,13 +126,15 @@ func (s *Scanner) scanOnce() {
 
 	for _, target := range knownAITargets {
 		var matchedPID int
+		var matchedExeName string
 		var isRunning bool
 
 		// 1. Process matching
 		for _, nameMatch := range target.ProcMatch {
-			if pids, ok := runningProcs[strings.ToLower(nameMatch)]; ok && len(pids) > 0 {
+			if matches, ok := runningProcs[strings.ToLower(nameMatch)]; ok && len(matches) > 0 {
 				isRunning = true
-				matchedPID = pids[0]
+				matchedPID = matches[0].pid
+				matchedExeName = matches[0].exeName
 				break
 			}
 		}
@@ -149,9 +159,16 @@ func (s *Scanner) scanOnce() {
 		status := domain.StatusOffline
 		taskCount := 0
 		taskDesc := ""
+		sourceText := ""
 
 		if isRunning {
 			status = domain.StatusOnline
+			if matchedPID > 0 {
+				sourceText = fmt.Sprintf("Process: %s (PID %d)", matchedExeName, matchedPID)
+			} else if portOpen {
+				sourceText = fmt.Sprintf("Port: 127.0.0.1:%d (REST API)", target.Port)
+			}
+
 			if hasExisting && existing.Status == domain.StatusWorking {
 				status = domain.StatusWorking
 				taskCount = existing.TaskCount
@@ -164,18 +181,26 @@ func (s *Scanner) scanOnce() {
 				taskDesc = "Awaiting tasks"
 			}
 		} else {
-			taskDesc = "Service offline"
+			status = domain.StatusOffline
+			taskDesc = "Process not detected"
+			if target.Port > 0 {
+				sourceText = fmt.Sprintf("Watched Port: :%d (Closed)", target.Port)
+			} else {
+				sourceText = fmt.Sprintf("Watched Process: %s.exe", target.ProcMatch[0])
+			}
 		}
 
 		agent := &domain.Agent{
 			ID:          target.ID,
 			Name:        target.Name,
 			Type:        target.Type,
+			Source:      sourceText,
 			Status:      status,
 			CurrentTask: taskDesc,
 			TaskCount:   taskCount,
 			PID:         matchedPID,
 			Port:        target.Port,
+			SortOrder:   target.SortOrder,
 			LastSeen:    time.Now(),
 			IsManaged:   false,
 		}
@@ -220,8 +245,13 @@ func fetchActiveModels(url string) string {
 	return "API server active"
 }
 
-func getRunningProcesses() map[string][]int {
-	procs := make(map[string][]int)
+type procInfo struct {
+	pid     int
+	exeName string
+}
+
+func getRunningProcesses() map[string][]procInfo {
+	procs := make(map[string][]procInfo)
 
 	snapshot, err := windows.CreateToolhelp32Snapshot(windows.TH32CS_SNAPPROCESS, 0)
 	if err != nil {
@@ -237,9 +267,12 @@ func getRunningProcesses() map[string][]int {
 	}
 
 	for {
-		name := syscall.UTF16ToString(entry.ExeFile[:])
-		nameLower := strings.ToLower(strings.TrimSuffix(name, ".exe"))
-		procs[nameLower] = append(procs[nameLower], int(entry.ProcessID))
+		rawExe := syscall.UTF16ToString(entry.ExeFile[:])
+		nameLower := strings.ToLower(strings.TrimSuffix(rawExe, ".exe"))
+		procs[nameLower] = append(procs[nameLower], procInfo{
+			pid:     int(entry.ProcessID),
+			exeName: rawExe,
+		})
 
 		err = windows.Process32Next(snapshot, &entry)
 		if err != nil {

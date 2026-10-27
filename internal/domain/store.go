@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -94,37 +95,45 @@ func (s *Store) Subscribe() <-chan struct{} {
 }
 
 // UpsertAgent updates or inserts an agent state.
+// Only notifies subscribers when meaningful fields actually change.
 func (s *Store) UpsertAgent(agent *Agent) {
 	s.mu.Lock()
 	existing, ok := s.agents[agent.ID]
+	changed := false
+
 	if ok {
+		if existing.Status != agent.Status ||
+			existing.CurrentTask != agent.CurrentTask ||
+			existing.TaskCount != agent.TaskCount ||
+			existing.PID != agent.PID ||
+			existing.Port != agent.Port ||
+			existing.Source != agent.Source {
+			changed = true
+		}
 		existing.Name = agent.Name
 		existing.Type = agent.Type
+		existing.Source = agent.Source
 		existing.Status = agent.Status
-		if agent.CurrentTask != "" {
-			existing.CurrentTask = agent.CurrentTask
-		}
-		if agent.TaskCount >= 0 {
-			existing.TaskCount = agent.TaskCount
-		}
-		if agent.PID > 0 {
-			existing.PID = agent.PID
-		}
-		if agent.Port > 0 {
-			existing.Port = agent.Port
-		}
+		existing.SortOrder = agent.SortOrder
+		existing.CurrentTask = agent.CurrentTask
+		existing.TaskCount = agent.TaskCount
+		existing.PID = agent.PID
+		existing.Port = agent.Port
 		existing.LastSeen = time.Now()
 	} else {
+		changed = true
 		agent.LastSeen = time.Now()
 		s.agents[agent.ID] = agent
 	}
 	s.mu.Unlock()
 
-	s.notify()
-	s.save()
+	if changed {
+		s.notify()
+		s.save()
+	}
 }
 
-// ListAgents returns all agents.
+// ListAgents returns all agents in a stable, deterministic sort order.
 func (s *Store) ListAgents() []*Agent {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -134,6 +143,15 @@ func (s *Store) ListAgents() []*Agent {
 		copyAgent := *a
 		list = append(list, &copyAgent)
 	}
+
+	// Strictly stable sort by SortOrder, then by Name
+	sort.Slice(list, func(i, j int) bool {
+		if list[i].SortOrder != list[j].SortOrder {
+			return list[i].SortOrder < list[j].SortOrder
+		}
+		return list[i].Name < list[j].Name
+	})
+
 	return list
 }
 

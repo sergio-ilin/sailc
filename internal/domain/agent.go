@@ -23,7 +23,7 @@ func (s AgentStatus) Label() string {
 	case StatusOffline:
 		return "Offline"
 	default:
-		return "Unknown"
+		return "Offline"
 	}
 }
 
@@ -31,12 +31,14 @@ func (s AgentStatus) Label() string {
 type Agent struct {
 	ID          string      `json:"id"`
 	Name        string      `json:"name"`
-	Type        string      `json:"type"`         // e.g., "IDE Assistant", "Local LLM Engine", "Desktop AI"
+	Type        string      `json:"type"`         // e.g. "IDE Assistant", "Desktop AI", "Local LLM Server"
+	Source      string      `json:"source"`       // Origin of detection: "Process: Antigravity.exe", "Port: 127.0.0.1:11434", etc.
 	Status      AgentStatus `json:"status"`
 	CurrentTask string      `json:"current_task"` // Summary of current active task
 	TaskCount   int         `json:"task_count"`   // Number of active tasks
 	PID         int         `json:"pid"`
 	Port        int         `json:"port"`
+	SortOrder   int         `json:"sort_order"`   // Stable deterministic position
 	LastSeen    time.Time   `json:"last_seen"`
 	IsManaged   bool        `json:"is_managed"`   // Discovered via process scan or registered via MCP
 }

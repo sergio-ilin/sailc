@@ -29,14 +29,14 @@ func (a *App) layoutAgentsTab(gtx layout.Context, pal brand.Palette) layout.Dime
 				}),
 				layout.Rigid(layout.Spacer{Height: unit.Dp(4)}.Layout),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					lbl := material.Label(a.theme, unit.Sp(13), "Real-time process audit, local LLM endpoints, and background task tracker")
+					lbl := material.Label(a.theme, unit.Sp(13), "Audits local processes and ports with deterministic tracking and live telemetry")
 					lbl.Color = pal.TextSecondary
 					return lbl.Layout(gtx)
 				}),
 			)
 		}),
 		layout.Rigid(layout.Spacer{Height: unit.Dp(brand.PaddingMedium)}.Layout),
-		// List of cards
+		// List of cards (stably ordered, no jitter)
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			return material.List(a.theme, &a.agentList).Layout(gtx, len(agents), func(gtx layout.Context, i int) layout.Dimensions {
 				agent := agents[i]
@@ -74,9 +74,10 @@ func (a *App) layoutAgentCard(gtx layout.Context, agent *domain.Agent, pal brand
 				return DrawStatusDot(gtx, unit.Dp(5), col)
 			}),
 			layout.Rigid(layout.Spacer{Width: unit.Dp(14)}.Layout),
-			// Main agent info
+			// Main agent information
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+					// Row 1: Agent Name, Type Badge, and Detection Source Badge
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 							// Name
@@ -87,7 +88,7 @@ func (a *App) layoutAgentCard(gtx layout.Context, agent *domain.Agent, pal brand
 								return lbl.Layout(gtx)
 							}),
 							layout.Rigid(layout.Spacer{Width: unit.Dp(10)}.Layout),
-							// Type badge
+							// Type Badge
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 								return DrawBadge(gtx, pal.StatusPillBg, func(gtx layout.Context) layout.Dimensions {
 									lbl := material.Label(a.theme, unit.Sp(11), agent.Type)
@@ -95,10 +96,23 @@ func (a *App) layoutAgentCard(gtx layout.Context, agent *domain.Agent, pal brand
 									return lbl.Layout(gtx)
 								})
 							}),
+							layout.Rigid(layout.Spacer{Width: unit.Dp(8)}.Layout),
+							// Explicit Detection Source Badge (Where it comes from)
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								sourceColor := pal.TextMuted
+								if agent.Status == domain.StatusOnline || agent.Status == domain.StatusWorking {
+									sourceColor = pal.Accent
+								}
+								return DrawBadge(gtx, pal.Canvas, func(gtx layout.Context) layout.Dimensions {
+									lbl := material.Label(a.theme, unit.Sp(11), agent.Source)
+									lbl.Color = sourceColor
+									return lbl.Layout(gtx)
+								})
+							}),
 						)
 					}),
 					layout.Rigid(layout.Spacer{Height: unit.Dp(6)}.Layout),
-					// Current task
+					// Row 2: Current Task / State Description
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						taskText := agent.CurrentTask
 						if taskText == "" {
@@ -107,20 +121,23 @@ func (a *App) layoutAgentCard(gtx layout.Context, agent *domain.Agent, pal brand
 						lbl := material.Label(a.theme, unit.Sp(13), "Task: "+taskText)
 						if agent.Status == domain.StatusWorking {
 							lbl.Color = pal.StatusWorking
-						} else {
+						} else if agent.Status == domain.StatusOnline {
 							lbl.Color = pal.TextSecondary
+						} else {
+							lbl.Color = pal.TextMuted
 						}
 						return lbl.Layout(gtx)
 					}),
 				)
 			}),
 			layout.Rigid(layout.Spacer{Width: unit.Dp(16)}.Layout),
-			// Right column: status badge and telemetry
+			// Right column: Status label and telemetry
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{
 					Axis:      layout.Vertical,
 					Alignment: layout.End,
 				}.Layout(gtx,
+					// Status Badge
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						var stColor = pal.StatusOffline
 						switch agent.Status {
@@ -138,18 +155,13 @@ func (a *App) layoutAgentCard(gtx layout.Context, agent *domain.Agent, pal brand
 						})
 					}),
 					layout.Rigid(layout.Spacer{Height: unit.Dp(4)}.Layout),
+					// Telemetry: Active task count
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						var meta string
-						if agent.PID > 0 {
-							meta = fmt.Sprintf("PID: %d", agent.PID)
-						} else if agent.Port > 0 {
-							meta = fmt.Sprintf("Port: %d", agent.Port)
+						if agent.Status == domain.StatusOffline {
+							meta = "Service Inactive"
 						} else {
-							meta = "Service offline"
-						}
-
-						if agent.TaskCount > 0 {
-							meta += fmt.Sprintf(" • Tasks: %d", agent.TaskCount)
+							meta = fmt.Sprintf("Active Tasks: %d", agent.TaskCount)
 						}
 
 						lbl := material.Label(a.theme, unit.Sp(11), meta)
@@ -162,6 +174,7 @@ func (a *App) layoutAgentCard(gtx layout.Context, agent *domain.Agent, pal brand
 	})
 	call := macro.Stop()
 
+	// Fill surface without harsh borders or shadows
 	paint.FillShape(gtx.Ops, pal.Surface, clip.UniformRRect(image.Rect(0, 0, dims.Size.X, dims.Size.Y), gtx.Dp(unit.Dp(brand.RadiusNormal))).Op(gtx.Ops))
 	call.Add(gtx.Ops)
 	return dims
