@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"fmt"
 	"image"
 
 	"gioui.org/app"
@@ -20,9 +19,8 @@ import (
 type activeTab int
 
 const (
-	tabAgents activeTab = iota
+	tabAI activeTab = iota
 	tabLog
-	tabIntegration
 )
 
 // App manages the SailC native desktop user interface.
@@ -34,27 +32,19 @@ type App struct {
 	mcpPort  int
 
 	currentTab activeTab
-	btnAgents  widget.Clickable
+	btnAI      widget.Clickable
 	btnLog     widget.Clickable
-	btnInteg   widget.Clickable
 
-	// Agent monitor list
+	// AI list
 	agentList widget.List
 
-	// Interactive Add-AI Wizard state
-	isAddingAgent      bool
-	wizardStep         int
-	selectedAI         domain.AvailableAI
-	btnAddAgent        widget.Clickable
-	btnCancelWizard    widget.Clickable
-	btnAutoIntegrate   widget.Clickable
-	btnNextStep        widget.Clickable
-	btnFinishWizard    widget.Clickable
-	wizardResultMsg    string
-	wizardSuccess      bool
-	availableList      widget.List
-	aiSelectionClicks  map[string]*widget.Clickable
-	removeAgentClicks  map[string]*widget.Clickable
+	// Interactive Add-AI state
+	isAddingAI        bool
+	btnAddAI          widget.Clickable
+	btnCloseAdd       widget.Clickable
+	availableList     widget.List
+	aiSelectionClicks map[string]*widget.Clickable
+	removeAIClicks    map[string]*widget.Clickable
 
 	// Central Log (Observation & Knowledge Inspector)
 	logList       widget.List
@@ -83,7 +73,7 @@ func NewApp(store *domain.Store, detector *theme.Detector, mcpPort int) *App {
 
 	a.availableList.Axis = layout.Vertical
 	a.aiSelectionClicks = make(map[string]*widget.Clickable)
-	a.removeAgentClicks = make(map[string]*widget.Clickable)
+	a.removeAIClicks = make(map[string]*widget.Clickable)
 
 	return a
 }
@@ -91,9 +81,9 @@ func NewApp(store *domain.Store, detector *theme.Detector, mcpPort int) *App {
 // Run executes the native window event loop.
 func (a *App) Run() error {
 	a.window = new(app.Window)
-	a.window.Option(app.Title("SailC — Local AI Coordination Hub"))
-	a.window.Option(app.Size(unit.Dp(1080), unit.Dp(720)))
-	a.window.Option(app.MinSize(unit.Dp(800), unit.Dp(560)))
+	a.window.Option(app.Title("SailC"))
+	a.window.Option(app.Size(unit.Dp(960), unit.Dp(640)))
+	a.window.Option(app.MinSize(unit.Dp(720), unit.Dp(480)))
 
 	// Subscribe to store updates for reactive redraws
 	storeUpdates := a.store.Subscribe()
@@ -130,24 +120,23 @@ func (a *App) layout(gtx layout.Context) layout.Dimensions {
 
 	paint.Fill(gtx.Ops, pal.Canvas)
 
-	if a.btnAgents.Clicked(gtx) {
-		a.currentTab = tabAgents
+	if a.btnAI.Clicked(gtx) {
+		a.currentTab = tabAI
+		a.isAddingAI = false
 	}
 	if a.btnLog.Clicked(gtx) {
 		a.currentTab = tabLog
-	}
-	if a.btnInteg.Clicked(gtx) {
-		a.currentTab = tabIntegration
+		a.isAddingAI = false
 	}
 
 	return layout.Flex{
 		Axis: layout.Vertical,
 	}.Layout(gtx,
-		// Header bar
+		// Minimal Header bar
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return a.layoutHeader(gtx, pal)
 		}),
-		// Content area with generous air and padding
+		// Content area
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{
 				Top:    unit.Dp(brand.PaddingNormal),
@@ -156,12 +145,10 @@ func (a *App) layout(gtx layout.Context) layout.Dimensions {
 				Right:  unit.Dp(brand.PaddingMedium),
 			}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				switch a.currentTab {
-				case tabAgents:
-					return a.layoutAgentsTab(gtx, pal)
+				case tabAI:
+					return a.layoutAITab(gtx, pal)
 				case tabLog:
 					return a.layoutLogTab(gtx, pal)
-				case tabIntegration:
-					return a.layoutIntegrationTab(gtx, pal)
 				default:
 					return layout.Dimensions{}
 				}
@@ -173,8 +160,8 @@ func (a *App) layout(gtx layout.Context) layout.Dimensions {
 func (a *App) layoutHeader(gtx layout.Context, pal brand.Palette) layout.Dimensions {
 	macro := op.Record(gtx.Ops)
 	dims := layout.Inset{
-		Top:    unit.Dp(14),
-		Bottom: unit.Dp(14),
+		Top:    unit.Dp(12),
+		Bottom: unit.Dp(12),
 		Left:   unit.Dp(brand.PaddingMedium),
 		Right:  unit.Dp(brand.PaddingMedium),
 	}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -182,55 +169,24 @@ func (a *App) layoutHeader(gtx layout.Context, pal brand.Palette) layout.Dimensi
 			Axis:      layout.Horizontal,
 			Alignment: layout.Middle,
 		}.Layout(gtx,
-			// SailC Vector Brand Logo
+			// Clean SailC Vector Logo Only
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return DrawSailLogo(gtx, unit.Dp(30), pal.Accent)
+				return DrawSailLogo(gtx, unit.Dp(26), pal.Accent)
 			}),
-			layout.Rigid(layout.Spacer{Width: unit.Dp(12)}.Layout),
-			// Title and tagline
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						lbl := material.Label(a.theme, unit.Sp(18), "SailC")
-						lbl.Color = pal.TextPrimary
-						lbl.Font.Weight = 700
-						return lbl.Layout(gtx)
-					}),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						lbl := material.Label(a.theme, unit.Sp(11), "Central Knowledge Hub for Local AI Agents")
-						lbl.Color = pal.TextSecondary
-						return lbl.Layout(gtx)
-					}),
-				)
-			}),
-			layout.Rigid(layout.Spacer{Width: unit.Dp(28)}.Layout),
-			// Nav tabs
+			layout.Rigid(layout.Spacer{Width: unit.Dp(20)}.Layout),
+			// Minimal Nav tabs: "AI" and "Log"
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return a.layoutTabButton(gtx, &a.btnAgents, "AI Agents", a.currentTab == tabAgents, pal)
+						return a.layoutTabButton(gtx, &a.btnAI, "AI", a.currentTab == tabAI, pal)
 					}),
-					layout.Rigid(layout.Spacer{Width: unit.Dp(8)}.Layout),
+					layout.Rigid(layout.Spacer{Width: unit.Dp(6)}.Layout),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return a.layoutTabButton(gtx, &a.btnLog, "Central Log", a.currentTab == tabLog, pal)
-					}),
-					layout.Rigid(layout.Spacer{Width: unit.Dp(8)}.Layout),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return a.layoutTabButton(gtx, &a.btnInteg, "MCP Protocol", a.currentTab == tabIntegration, pal)
+						return a.layoutTabButton(gtx, &a.btnLog, "Log", a.currentTab == tabLog, pal)
 					}),
 				)
 			}),
 			layout.Flexed(1, layout.Spacer{}.Layout),
-			// Live statistics badge
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				tot, work, tasks := a.store.TotalStats()
-				infoText := fmt.Sprintf("MCP: :%d  •  Active AI: %d/%d  •  Tasks: %d", a.mcpPort, work, tot, tasks)
-				return DrawBadge(gtx, pal.StatusPillBg, func(gtx layout.Context) layout.Dimensions {
-					lbl := material.Label(a.theme, unit.Sp(12), infoText)
-					lbl.Color = pal.TextSecondary
-					return lbl.Layout(gtx)
-				})
-			}),
 		)
 	})
 	call := macro.Stop()
@@ -255,8 +211,8 @@ func (a *App) layoutTabButton(gtx layout.Context, btn *widget.Clickable, title s
 		dims := layout.Inset{
 			Top:    unit.Dp(6),
 			Bottom: unit.Dp(6),
-			Left:   unit.Dp(14),
-			Right:  unit.Dp(14),
+			Left:   unit.Dp(16),
+			Right:  unit.Dp(16),
 		}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			lbl := material.Label(a.theme, unit.Sp(13), title)
 			lbl.Color = textColor
